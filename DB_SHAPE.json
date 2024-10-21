@@ -1,0 +1,196 @@
+// //! PHONE DB SHAPE :
+// {
+//     "brand": "Apple",
+//     "model": "iPhone 14",
+//     "color": "Black",
+//     "storageOptions": [
+//         {"storage": "128GB", "price": 999},
+//         {"storage": "256GB", "price": 1099}
+//     ],
+//     "features": ["5G", "Dual SIM", "NFC"],
+//     "specifications": {
+//         "screenSize": "6.1 inches",
+//         "resolution": "2532 x 1170",
+//         "processor": "A15 Bionic",
+//         "ram": "4GB",
+//         "battery": "3095 mAh",
+//         "camera": {
+//             "front": "12MP",
+//             "rear": "12MP + 12MP"
+//         }
+//     },
+//     "images": [
+//         "https://example.com/iphone14-black-1.jpg",
+//         "https://example.com/iphone14-black-2.jpg"
+//     ],
+//     "description": "The iPhone 14 features a stunning display and powerful performance.",
+//     "stock": 50,
+//     "ratings": {
+//         "averageRating": 4.5,
+//         "reviewCount": 150
+//     },
+//     "createdAt": "2022-06-15T12:00:00Z",
+//     "updatedAt": "2022-09-15T12:00:00Z",
+
+//     //! HEADPHONE DB SHAPE :
+
+//     "headphones": {
+//         "name": "String",
+//         "brand": "String",
+//         "price": "Number",
+//         "description": "String",
+//         "connectivity": "String", //(e.g., wired, wireless)
+//         "battery_life": "Number",
+//         "noise_cancellation": "Boolean",
+//         "color": ["String"],
+//         "microphone": "Boolean",
+//         "water_resistance": "String",
+//         "images": ["String"],
+//         "reviews": [
+//             {
+//                 "userId": "ObjectId()",
+//                 "rating": "Number",
+//                 "comment": "String",
+//                 "createdAt": "Date"
+//             }
+//         ],
+//         "stock": "Number",
+//         "createdAt": "Date",
+//         "updatedAt": "Date"
+//     },
+
+//     //! SMART WATCH DB SHAPE :
+
+//     "smartwatches": {
+//         "name": "String",
+//         "brand": "String",
+//         "price": "Number",
+//         "description": "String",
+//         "battery_life": "Number",
+//         "water_resistance": "String",
+//         "color": ["String"],
+//         "features": ["String"], //["Heart Rate Monitor", "GPS", "Music Control"]
+//         "images": ["String"],
+//         "reviews": [
+//             {
+//                 "userId": "ObjectId()",
+//                 "rating": "Number",
+//                 "comment": "String",
+//                 "createdAt": "Date"
+//             }
+//         ],
+//         "stock": "Number",
+//         "createdAt": "Date",
+//         "updatedAt": "Date"
+//     }
+// }
+
+//! general shape :
+
+{
+    "products": [
+        {
+            "name": "String",
+            "description": "String",
+            "price": "Number",
+            "stock": "Number",
+            "category": {
+                "type": "ObjectId",
+                "ref": "Category"
+            },
+            "subcategory": {
+                "type": "String",
+                "enum": ["MOUSE", "KEYBOARD", "laptop", "Smartphones", "Headphones", "Smart Watch"]
+            },
+            "colors": ["String"],
+            "attributes": {
+                "ram": "String",
+                "storage": "String",
+                "battery_capacity": "Number",
+                "screen_size": "Number",
+                "connectivity": "String",
+                "type": "String"
+            },
+            "sellerId": "ObjectId",
+            "createdAt": "Date",
+            "updatedAt": "Date"
+        }
+    ],
+
+    "categories": [
+        {
+            "name": "Informatique",
+            "subcategories": [
+                {
+                    "name": "MOUSE"
+                },
+                {
+                    "name": "KEYBOARD"
+                },
+                {
+                    "name": "laptop"
+                }
+            ]
+        },
+        {
+            "name": "Phones & Accessories",
+            "subcategories": [
+                {
+                    "name": "Smartphones"
+                },
+                {
+                    "name": "Headphones"
+                },
+                {
+                    "name": "Smart Watch"
+                }
+            ]
+        }
+    ],
+
+    "users": [
+        {
+            "name": "String",
+            "email": "String",
+            "role": {
+                "type": "String",
+                "enum": ["admin", "seller", "customer"]
+            },
+            "password": "String",
+            "profilePhoto": {
+                "url": "String",
+                "public_id": "String"
+            },
+            "createdAt": "Date",
+            "updatedAt": "Date"
+        }
+    ],
+
+    "orders": [
+        {
+            "customerId": "ObjectId",
+            "products": [
+                {
+                    "productId": "ObjectId",
+                    "quantity": "Number"
+                }
+            ],
+            "totalPrice": "Number",
+            "createdAt": "Date",
+            "updatedAt": "Date"
+        }
+    ],
+
+    "chats": [
+        {
+            "senderId": "ObjectId",
+            "receiverId": "ObjectId",
+            "messages": [
+                {
+                    "text": "String",
+                    "timestamp": "Date"
+                }
+            ]
+        }
+    ]
+}
