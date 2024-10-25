@@ -41,7 +41,7 @@ module.exports.uploadeProfilePicture = async (req, res) => {
 
     await user.save();
 
-    res.send(user);
+    res.status(200).json({message: "Profile picture uploaded", result : result});
 
     fs.unlinkSync(imagePath);
 };

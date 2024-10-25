@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema(
             minlength: 5,
             maxlength: 255,
             trim: true,
+            unique: true, // Ensure email uniqueness
         },
         password: {
             type: String,
@@ -33,9 +34,11 @@ const userSchema = new mongoose.Schema(
                 publicId: null,
             },
         },
-        isAdmin: {
-            type: Boolean,
-            default: false,
+        roles: {
+            type: String,
+            enum: ["customer", "admin"],
+            default: "customer",
+            required: true,
         },
         isVerified: {
             type: Boolean,
@@ -43,50 +46,22 @@ const userSchema = new mongoose.Schema(
         },
         orderHistory: [
             {
-                orderId: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "Order",
-                    required: true,
-                },
-                productIds: [
-                    {
-                        type: mongoose.Schema.Types.ObjectId,
-                        ref: "Product",
-                        required: true,
-                    },
-                ],
-
-                totalPrice: {
-                    type: Number,
-                    required: true,
-                    min: 0,
-                },
-                orderDate: {
-                    type: Date,
-                    default: Date.now,
-                    required: true,
-                },
-                orderStatus: {
-                    type: String,
-                    enum: ["Pending", "Shipped", "Delivered", "Cancelled"],
-                    default: "Pending",
-                    required: true,
-                },
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Order", // Reference to the Order model
             },
         ],
         wishlist: [
             {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "Product",
-                required: true,
             },
         ],
-        roles: {
-            type: String,
-            enum: ["customer", "admin"],
-            default: "customer",
-            required: true,
-        },
+        likedProducts: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Product", // Reference to the Product model
+            },
+        ],
         coins: {
             type: Number,
             default: 0,
@@ -96,51 +71,36 @@ const userSchema = new mongoose.Schema(
             {
                 couponCode: {
                     type: String,
-                    required: true, // Ensure each coupon has a code
+                    required: true,
                 },
                 discount: {
                     type: Number,
-                    required: true, // Ensure each coupon has a discount value
+                    required: true,
                 },
                 expirationDate: {
                     type: Date,
-                    required: true, // Ensure each coupon has an expiration date
+                    required: true,
                 },
             },
         ],
         address: {
-            street: {
-                type: String,
-                required: false, // Make it required if necessary
-            },
-            city: {
-                type: String,
-                required: false, // Make it required if necessary
-            },
-            state: {
-                type: String,
-                required: false, // Make it required if necessary
-            },
-            zip: {
-                type: String,
-                required: false, // Make it required if necessary
-            },
-            country: {
-                type: String,
-                required: false, // Make it required if necessary
-            },
+            street: String,
+            city: String,
+            state: String,
+            zip: String,
+            country: String,
         },
         phoneNumber: {
             type: String,
-            required: false, // Optional contact number
+            required: false,
         },
         lastLogin: {
             type: Date,
-            default: Date.now, // Sets the current date/time by default
+            default: Date.now,
         },
         lastSeen: {
             type: Date,
-            default: null, // Sets the current date/time by default
+            default: null,
         },
     },
     {

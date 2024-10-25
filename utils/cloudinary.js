@@ -28,8 +28,14 @@ const cloudinaryDelete = async (publicId) => {
     }
 };
 
+const cloudinaryUploads = async (filePaths) => {
+    const uploadPromises = filePaths.map((filePath) => cloudinaryUpload(filePath));
+    return Promise.all(uploadPromises);
+};
+
 module.exports = {
     cloudinary,
     cloudinaryUpload,
     cloudinaryDelete,
+    cloudinaryUploads,
 };
