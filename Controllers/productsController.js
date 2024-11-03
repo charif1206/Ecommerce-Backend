@@ -1,8 +1,9 @@
 const path = require("path");
 const fs = require("fs").promises;
-const {cloudinaryUploads} = require("../utils/cloudinary");
-const {productValidation, Product} = require("../Models/Product");
+const {cloudinaryUploads, cloudinaryDeletes} = require("../utils/cloudinary");
 
+const {validateProduct} = require("../Validation/productValidation");
+const {Product} = require("../Models/Product");
 const removeFiles = async (filePaths) => {
     try {
         await Promise.all(filePaths.map((path) => fs.unlink(path)));
@@ -11,54 +12,64 @@ const removeFiles = async (filePaths) => {
     }
 };
 
+module.exports.getAllProducts = async (req, res) => {
+    const products = await Product.find()
+        .populate("seller", "username ,  profilePicture")
+        .select("-__v");
+    res.send(products);
+};
 
+module.exports.getProduct = async (req, res) => {
+    const product = await Product.findById(req.params.id).populate("seller").select("-__v");
+    if (!product) {
+        return res.status(404).json({message: "Product not found"});
+    }
+    res.send(product);
+};
+
+module.exports.deleteProduct = async (req, res) => {
+    const product = await Product.findById(req.params.id);
+
+    const images = product.productImages;
+    const publicIds = images.map((image) => image.publicId);
+
+    if (publicIds.length > 0) {
+        await cloudinaryDeletes(publicIds);
+    }
+
+    await Product.findByIdAndDelete(req.params.id);
+    res.status(200).json({message: "Product deleted"});
+};
 
 module.exports.createProduct = async (req, res) => {
-    req.body.variants = JSON.parse(req.body.variants);
+    const files = req.files;
+    console.log(req.body.variants);
+
+    if (req.body.variants) {
+        req.body.variants = Array.isArray(req.body.variants)
+            ? req.body.variants.map((variant) => JSON.parse(variant)) // Parse each variant string
+            : [JSON.parse(req.body.variants)]; // Single variant case
+    } else {
+        req.body.variants = []; // Default to an empty array if no variants
+    }
+
+    const {error} = validateProduct(req.body);
+
+    if (error) {
+        await removeFiles(files.map((file) => file.path));
+        return res.status(400).send({error: error.details[0].message});
+    }
 
     console.log(req.body);
 
-    const {error} = productValidation.validate(req.body);
-    if (error) return res.status(400).json({message: error.details[0].message});
+    if (req.files.length === 0) return res.status(400).json({message: "No files uploaded"});
 
-    const files = req.files;
-
-    if (files.length > 4) {
+    if (req.files.length > 4) {
         await removeFiles(files.map((file) => file.path));
         return res.status(400).json({message: "Too many files uploaded. Maximum of 4 allowed."});
     }
-    if (!files || files.length === 0) return res.status(400).json({message: "No files uploaded."});
 
-    // Upload images to Cloudinary
-    const uploadResults = await cloudinaryUploads(files.map((file) => file.path));
-
-    // Map Cloudinary upload results, filtering any unsuccessful uploads
-    const images = uploadResults
-        .filter((result) => result && result.secure_url && result.public_id)
-        .map((result) => ({
-            url: result.secure_url,
-            publicId: result.public_id,
-        }));
-
-    // Handle cases where uploads failed
-    if (images.length === 0) {
-        await removeFiles(files.map((file) => file.path));
-        return res.status(500).json({message: "Image upload failed."});
-    }
-
-    // Create and save the new product
-    const product = new Product({
-        ...req.body,
-        productImages: images,
-    });
-
-    await product.save();
-
-    // Delete uploaded files
-    await removeFiles(files.map((file) => file.path));
-    // Return the newly created product info
-    res.status(201).json({
-        message: "Product created successfully!",
-        product,
-    });
+    const newProduct = new Product(req.body);
+    const savedProduct = await newProduct.save();
+    res.status(201).send({message: "Product created successfully", product: savedProduct});
 };

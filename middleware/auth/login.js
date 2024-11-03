@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
 
 const login = (req, res, next) => {
-    // Get the token from the cookie
     const token = req.cookies.token;
 
     // Check if the token is available

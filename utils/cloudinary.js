@@ -33,9 +33,15 @@ const cloudinaryUploads = async (filePaths) => {
     return Promise.all(uploadPromises);
 };
 
+const cloudinaryDeletes = async (publicIds) => {
+    const deletePromises = publicIds.map((publicId) => cloudinaryDelete(publicId));
+    return Promise.all(deletePromises);
+};
+
 module.exports = {
     cloudinary,
     cloudinaryUpload,
     cloudinaryDelete,
     cloudinaryUploads,
+    cloudinaryDeletes,
 };

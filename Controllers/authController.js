@@ -36,7 +36,7 @@ module.exports.Login = async (req, res) => {
         res.status(400).json({message: "we sent a verification link to your email"});
     }
 
-    generateTokenAndSetCookies(res, user._id, user.isAdmin);
+    generateTokenAndSetCookies(res, user._id, user.roles);
 
     const userObject = user.toObject();
 

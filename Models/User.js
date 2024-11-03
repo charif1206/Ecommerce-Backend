@@ -1,4 +1,3 @@
-const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const mongoose = require("mongoose");
 const Joi = require("joi");
@@ -36,7 +35,7 @@ const userSchema = new mongoose.Schema(
         },
         roles: {
             type: String,
-            enum: ["customer", "admin"],
+            enum: ["customer", "seller", "admin"],
             default: "customer",
             required: true,
         },
