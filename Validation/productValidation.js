@@ -122,7 +122,7 @@ const schemas = {
 const allowedCategories = Object.keys(schemas);
 
 const validateProduct = (data) => {
-    const category = data.category && data.category.trim(); // Trim any extra spaces
+    const category = data.category && data.category.trim(); 
 
     // Check if category exists and is one of the allowed values
     if (!category || !allowedCategories.includes(category)) {

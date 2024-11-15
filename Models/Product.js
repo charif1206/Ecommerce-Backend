@@ -48,9 +48,9 @@ const variantSchema = new mongoose.Schema(
             required: true,
             min: 0,
         },
-        _id: false, // Disables automatic creation of _id for each variant
+         // Disables automatic creation of _id for each variant
     },
-    {_id: false} // To ensure that this schema doesn't create its own _id field
+     // To ensure that this schema doesn't create its own _id field
 );
 
 const productSchema = new mongoose.Schema(
@@ -106,12 +106,12 @@ const productSchema = new mongoose.Schema(
                 min: 0,
             },
         },
-        reviews: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "Review",
-            },
-        ],
+        // reviews: [
+        //     {
+        //         type: mongoose.Schema.Types.ObjectId,
+        //         ref: "Review",
+        //     },
+        // ],
         seller: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -132,6 +132,6 @@ const productSchema = new mongoose.Schema(
     {timestamps: true}
 );
 
-const Product = mongoose.model("Product", productSchema);
+const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
 
 module.exports = {Product};

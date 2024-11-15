@@ -6,6 +6,12 @@ const sendMail = require("../utils/nodeMailer");
 const generateTokenAndSetCookies = require("../middleware/generateTokenAndSetCookies");
 const admin = require("../utils/firebaseAdmin");
 
+/**
+ * @route   POST /api/users/login
+ * @desc    Authenticates a user and sends a verification email if the user's email is not verified
+ * @access  Public
+ */
+
 module.exports.Login = async (req, res) => {
     const user = await User.findOne({email: req.body.email});
     if (!user) {
@@ -44,6 +50,12 @@ module.exports.Login = async (req, res) => {
 
     res.status(200).json(userObject);
 };
+
+/**
+ * @route   POST /api/users/google-auth
+ * @desc    Authenticates a user via Google and creates a new user if they don't exist
+ * @access  Public
+ */
 
 module.exports.googleAuth = async (req, res) => {
     const {idToken} = req.body;
@@ -88,12 +100,16 @@ module.exports.googleAuth = async (req, res) => {
     }
 };
 
+/**
+ * @route   POST /api/users/register
+ * @desc    Registers a new user and sends a verification email
+ * @access  Public
+ */
+
 module.exports.Register = async (req, res) => {
     const {error} = userValidation.validate(req.body);
-    
-    if (error) {
-        console.log(res.body);
 
+    if (error) {
         console.log("Validation error: ", error.details[0].message);
         return res.status(400).send(error.details[0].message);
     }
@@ -132,6 +148,12 @@ module.exports.Register = async (req, res) => {
     res.json({message: "we sent a verification link to your email"});
 };
 
+/**
+ * @route   GET /api/users/:id/verify/:token
+ * @desc    Verifies the user's email using the token and updates user status
+ * @access  Public
+ */
+
 module.exports.VerifyLink = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -153,6 +175,12 @@ module.exports.VerifyLink = async (req, res) => {
 
     res.status(200).json({message: "Email verified"});
 };
+
+/**
+ * @route   POST /api/users/logout
+ * @desc    Logs out the user by clearing the authentication token from cookies
+ * @access  Private
+ */
 
 module.exports.Logout = (req, res) => {
     res.clearCookie("token");

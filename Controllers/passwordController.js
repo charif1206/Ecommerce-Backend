@@ -4,6 +4,12 @@ const crypto = require("crypto");
 const sendMail = require("../utils/nodeMailer");
 const bcrypt = require("bcrypt");
 
+/**
+ * @route   POST /api/users/password-reset
+ * @desc    Sends a password reset link to the user's email
+ * @access  Public
+ */
+
 module.exports.restPasswordLink = async (req, res) => {
     const {error} = passwordResetEmailValidation.validate(req.body);
     if (error) {
@@ -30,6 +36,12 @@ module.exports.restPasswordLink = async (req, res) => {
     res.status(200).json({message: "we sent a reset link to your email"});
 };
 
+/**
+ * @route   GET /api/password/reset-password/:id/verify/:token
+ * @desc    Verifies the password reset link and token
+ * @access  Public
+ */
+
 module.exports.verifyRestPasswordLink = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -42,6 +54,12 @@ module.exports.verifyRestPasswordLink = async (req, res) => {
     });
     if (!verificationToken) return res.status(400).send("Invalid verification token");
 };
+
+/**
+ * @route   PUT /api/password/reset-password/:id/verify/:token
+ * @desc    Resets the user's password using the provided token
+ * @access  Public
+ */
 
 module.exports.restPassword = async (req, res) => {
     const {error} = passwordResetValidation.validate(req.body);

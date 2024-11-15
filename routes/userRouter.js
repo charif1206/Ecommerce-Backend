@@ -1,9 +1,5 @@
 const express = require("express");
-const {
-    getAllUsers,
-    uploadeProfilePicture,
-    faceRecognition,
-} = require("../Controllers/usersController");
+const {getAllUsers, uploadeProfilePicture} = require("../Controllers/usersController");
 const {upload} = require("../middleware/photoUpload");
 const checkRole = require("../middleware/auth/mainRoleCheker");
 const userRouter = express.Router();
@@ -17,6 +13,6 @@ userRouter.post(
     uploadeProfilePicture
 );
 
-userRouter.delete("/:id", [login, checkRole("admin")], deleteUser);
+// userRouter.delete("/:id", [login, checkRole("admin")], deleteUser);
 
 module.exports = userRouter;
