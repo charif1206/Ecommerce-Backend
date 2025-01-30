@@ -101,7 +101,7 @@ module.exports.googleAuth = async (req, res) => {
 };
 
 /**
- * @route   POST /api/users/register
+ * @route   POST /api/auth/register
  * @desc    Registers a new user and sends a verification email
  * @access  Public
  */
@@ -149,7 +149,7 @@ module.exports.Register = async (req, res) => {
 };
 
 /**
- * @route   GET /api/users/:id/verify/:token
+ * @route   GET /api/auth/:id/verify/:token
  * @desc    Verifies the user's email using the token and updates user status
  * @access  Public
  */

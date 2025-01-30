@@ -52,7 +52,11 @@ module.exports.verifyRestPasswordLink = async (req, res) => {
         userId: user._id,
         token: req.params.token,
     });
-    if (!verificationToken) return res.status(400).send("Invalid verification token");
+    if (!verificationToken) {
+        return res.status(400).send("Invalid verification token");
+    }
+
+    res.status(200).json({message: "Verification successful"});
 };
 
 /**

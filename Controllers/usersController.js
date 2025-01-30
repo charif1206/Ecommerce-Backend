@@ -12,6 +12,7 @@ dotenv.config();
 
 module.exports.getAllUsers = async (req, res) => {
     const users = await User.find().lean().select("-password");
+
     res.json(users);
 };
 
