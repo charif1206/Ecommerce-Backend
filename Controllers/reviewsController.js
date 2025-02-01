@@ -1,29 +1,53 @@
-const { Product } = require("../Models/Product");
+const {Product} = require("../Models/Product");
 const Review = require("../models/Review");
 
-exports.getProductReviews = async (req, res) => {
-    const {productId} = req.params;
-    const reviews = await Review.find({productId})
-        .populate("userId", "name profilePicture") // Populate user information like name and email
-        .sort({createdAt: -1});
+// Get all reviews for a product
 
-    res.status(200).json(reviews);
+exports.getProductReviews = async (req, res) => {
+    try {
+        const {productId} = req.params;
+        // Get page and limit from query parameters, defaulting to page 1 and limit 10
+        const {page = 1, limit = 10} = req.query;
+        const pageNumber = parseInt(page, 10);
+        const pageSize = parseInt(limit, 10);
+        const skip = (pageNumber - 1) * pageSize;
+
+        // Get paginated reviews
+        const reviews = await Review.find({productId})
+            .populate("user", "username profilePicture") // Populate user info
+            .sort({createdAt: -1})
+            .skip(skip)
+            .limit(pageSize);
+
+        // Get total count and calculate total pages
+        const totalReviews = await Review.countDocuments({productId});
+        const totalPages = Math.ceil(totalReviews / pageSize);
+
+        res.status(200).json({
+            reviews,
+            page: pageNumber,
+            totalPages,
+            totalReviews,
+        });
+    } catch (error) {
+        res.status(500).json({message: error.message});
+    }
 };
 
 exports.addReview = async (req, res) => {
     const {productId} = req.params; // Get product ID from URL
     const {rating, comment} = req.body; // Get rating and comment from the body
-    const userId = req.user.userId; // Assume the user ID comes from the auth middleware
+    const user = req.user.userId; // Assume the user ID comes from the auth middleware
 
     // Check if the user has already reviewed this product
-    const existingReview = await Review.findOne({productId, userId});
+    const existingReview = await Review.findOne({productId, user});
     if (existingReview) {
         return res.status(400).json({message: "You have already reviewed this product."});
     }
 
     // Create the new review
     const review = new Review({
-        userId,
+        user,
         productId,
         rating,
         comment,
@@ -51,7 +75,7 @@ exports.updateReview = async (req, res) => {
 
     // Ensure the review belongs to the user
     const review = await Review.findOneAndUpdate(
-        {_id: reviewId, userId: req.user.userId}, // Only allow user to update their own review
+        {_id: reviewId, user: req.user.userId}, // Only allow user to update their own review
         {rating, comment},
         {new: true} // Return the updated review
     );
@@ -80,13 +104,18 @@ exports.deleteReview = async (req, res) => {
     // Find the review to delete
     const review = await Review.findById(reviewId);
 
+    console.log(req.user.userId.toString(), review.user.toString());
+    
+
     // Check if the review exists and if the user is either the review owner or an admin
     if (!review) {
         return res.status(404).json({message: "Review not found"});
     }
 
+    
+
     // Check if the user is the owner or an admin
-    if (review.userId.toString() !== req.user.userId.toString() && req.user.role !== "admin") {
+    if (review.user.toString() !== req.user.userId.toString() && req.user.role !== "admin") {
         return res.status(403).json({message: "You are not authorized to delete this review"});
     }
 

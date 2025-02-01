@@ -42,35 +42,28 @@ module.exports.getAllProducts = async (req, res) => {
         filters.name = {$regex: searchQuery, $options: "i"}; // Case-insensitive search by product name
     }
 
-    console.log(filters);
-
     // Sorting options (price)
     const order = sortOrder === "desc" ? -1 : 1;
     const sortOptions = {price: order};
 
-    try {
-        // Fetch products from the database based on the filters and pagination
-        const products = await Product.find(filters)
-            .populate("seller", "username profilePicture")
-            .select("-__v")
-            .skip((pageNumber - 1) * pageSize)
-            .limit(pageSize)
-            .sort(sortOptions);
+    // Fetch products from the database based on the filters and pagination
+    const products = await Product.find(filters)
+        .populate("seller", "username profilePicture")
+        .select("-__v")
+        .skip((pageNumber - 1) * pageSize)
+        .limit(pageSize)
+        .sort(sortOptions);
 
-        const totalProducts = await Product.countDocuments(filters);
-        const totalPages = Math.ceil(totalProducts / pageSize);
+    const totalProducts = await Product.countDocuments(filters);
+    const totalPages = Math.ceil(totalProducts / pageSize);
 
-        res.json({
-            products,
-            totalProducts,
-            totalPages,
-            currentPage: pageNumber,
-            pageSize,
-        });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({message: "An error occurred while fetching products."});
-    }
+    res.json({
+        products,
+        totalProducts,
+        totalPages,
+        currentPage: pageNumber,
+        pageSize,
+    });
 };
 
 /**
