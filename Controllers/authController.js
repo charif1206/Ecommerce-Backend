@@ -15,12 +15,12 @@ const admin = require("../utils/firebaseAdmin");
 module.exports.Login = async (req, res) => {
     const user = await User.findOne({email: req.body.email});
     if (!user) {
-        return res.status(400).send("Invalid email");
+        return res.status(400).json({message: "User not found"});
     }
 
     const validPassword = await bcrypt.compare(req.body.password, user.password);
     if (!validPassword) {
-        return res.status(400).send("Invalid password");
+        return res.status(400).json({message: "Invalid password"});
     }
 
     if (!user.isVerified) {
@@ -156,18 +156,26 @@ module.exports.Register = async (req, res) => {
 
 module.exports.VerifyLink = async (req, res) => {
     const user = await User.findById(req.params.id);
+
     if (!user) {
-        return res.status(400).json({message: "invalid userId"});
+        return res.status(400).json({message: "User not found"});
+    }
+
+    // Check if the user is already verified
+    if (user.isVerified) {
+        return res.status(400).json({message: "Email already verified"});
     }
 
     const verificationToken = await VerificationToken.findOne({
         userId: user._id,
         token: req.params.token,
     });
+
     if (!verificationToken) {
-        return res.status(400).json({message: "invalid verification token"});
+        return res.status(400).json({message: "Invalid verification token"});
     }
 
+    // Proceed with the verification process
     user.isVerified = true;
     await user.save();
 

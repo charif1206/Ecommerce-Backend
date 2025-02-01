@@ -8,8 +8,8 @@ const baseSchema = Joi.object({
         "any.required": "Product name is required.",
     }),
 
-    brand: Joi.string().min(5).max(255).trim().required().messages({
-        "string.min": "Brand should have at least 5 characters.",
+    brand: Joi.string().min(3).max(255).trim().required().messages({
+        "string.min": "Brand should have at least 3 characters.",
         "string.max": "Brand should not exceed 255 characters.",
         "any.required": "Brand is required.",
     }),
@@ -22,10 +22,6 @@ const baseSchema = Joi.object({
         "string.max": "Description should not exceed 255 characters.",
     }),
 
-    productImages: Joi.required().messages({
-        "any.required": "Product image is required.",
-    }),
-
     category: Joi.string().valid("Phones", "Headphones", "Smartwatches").required().messages({
         "any.only": "Category must be one of Phones, Headphones, or Smartwatches.",
         "any.required": "Category is required.",
@@ -35,94 +31,71 @@ const baseSchema = Joi.object({
         average: Joi.number().min(0).max(5).default(0).optional(),
         count: Joi.number().min(0).default(0).optional(),
     }).optional(),
+
+    price: Joi.number().required().min(0).messages({
+        "any.required": "Price is required.",
+        "number.min": "Price must be a positive number.",
+    }),
+
+    stock: Joi.number().required().min(0).messages({
+        "any.required": "Stock is required.",
+        "number.min": "Stock must be a non-negative number.",
+    }),
 });
 
 // Category-specific schemas that extend the base schema
 const schemas = {
     Phones: baseSchema.keys({
-        variants: Joi.array()
-            .items(
-                Joi.object({
-                    ram: Joi.string().required().messages({
-                        "any.required": "RAM is required for Phones.",
-                    }),
-                    storage: Joi.string().required().messages({
-                        "any.required": "Storage is required for Phones.",
-                    }),
-                    price: Joi.number().required().min(0).messages({
-                        "any.required": "Price is required for phones.",
-                        "number.min": "Price must be a positive number.",
-                    }),
-                    stock: Joi.number().required().min(0).messages({
-                        "any.required": "Stock is required for phones.",
-                        "number.min": "Stock must be a non-negative number.",
-                    }),
-                })
-            )
-            .min(1)
+        variants: Joi.object({
+            ram: Joi.string().required().messages({
+                "any.required": "RAM is required for Phones.",
+            }),
+            storage: Joi.string().required().messages({
+                "any.required": "Storage is required for Phones.",
+            }),
+        })
             .required()
             .messages({
-                "array.min": "Phones must have at least one variant with RAM and storage.",
+                "any.required": "Variants are required for Phones.",
             }),
     }),
+
     Headphones: baseSchema.keys({
-        variants: Joi.array()
-            .items(
-                Joi.object({
-                    batteryLife: Joi.string().required().messages({
-                        "any.required": "Battery life is required for Headphones.",
-                    }),
-                    noiseCancellation: Joi.boolean().required().messages({
-                        "any.required": "Noise cancelling is required for Headphones.",
-                    }),
-                    price: Joi.number().required().min(0).messages({
-                        "any.required": "Price is required for Headphones.",
-                        "number.min": "Price must be a positive number.",
-                    }),
-                    stock: Joi.number().required().min(0).messages({
-                        "any.required": "Stock is required for Headphones.",
-                        "number.min": "Stock must be a non-negative number.",
-                    }),
-                })
-            )
-            .min(1)
+        variants: Joi.object({
+            batteryLife: Joi.string().required().messages({
+                "any.required": "Battery life is required for Headphones.",
+            }),
+            noiseCancellation: Joi.boolean().required().messages({
+                "any.required": "Noise cancelling is required for Headphones.",
+            }),
+        })
             .required()
             .messages({
-                "array.min": "Headphones must have at least one variant.",
+                "any.required": "Variants are required for Headphones.",
             }),
     }),
+
     Smartwatches: baseSchema.keys({
-        variants: Joi.array()
-            .items(
-                Joi.object({
-                    screenType: Joi.string().optional().messages({
-                        "string.base": "Screen type must be a string.",
-                    }),
-                    waterResistant: Joi.boolean().optional().messages({
-                        "boolean.base": "Water resistance must be a boolean.",
-                    }),
-                    price: Joi.number().required().min(0).messages({
-                        "any.required": "Price is required for phones.",
-                        "number.min": "Price must be a positive number.",
-                    }),
-                    stock: Joi.number().required().min(0).messages({
-                        "any.required": "Stock is required for phones.",
-                        "number.min": "Stock must be a non-negative number.",
-                    }),
-                })
-            )
-            .min(1)
+        variants: Joi.object({
+            screenType: Joi.string().optional().messages({
+                "string.base": "Screen type must be a string.",
+            }),
+            waterResistant: Joi.boolean().optional().messages({
+                "boolean.base": "Water resistance must be a boolean.",
+            }),
+        })
             .required()
             .messages({
-                "array.min": "Smartwatches must have at least one variant.",
+                "any.required": "Variants are required for Smartwatches.",
             }),
     }),
 };
 
+// Function to validate the product
 const allowedCategories = Object.keys(schemas);
 
 const validateProduct = (data) => {
-    const category = data.category && data.category.trim(); 
+    const category = data.category && data.category.trim();
 
     // Check if category exists and is one of the allowed values
     if (!category || !allowedCategories.includes(category)) {

@@ -5,7 +5,7 @@ const sendMail = require("../utils/nodeMailer");
 const bcrypt = require("bcrypt");
 
 /**
- * @route   POST /api/users/password-reset
+ * @route   POST /api/password/password-reset
  * @desc    Sends a password reset link to the user's email
  * @access  Public
  */
@@ -18,7 +18,7 @@ module.exports.restPasswordLink = async (req, res) => {
 
     const user = await User.findOne({email: req.body.email});
     if (!user) {
-        return res.status(400).send("Invalid email");
+        return res.status(400).json({message: "User with that email does not exist"});
     }
 
     const verificationToken = new VerificationToken({
@@ -67,16 +67,16 @@ module.exports.verifyRestPasswordLink = async (req, res) => {
 
 module.exports.restPassword = async (req, res) => {
     const {error} = passwordResetValidation.validate(req.body);
-    if (error) return res.status(400).send(error.details[0].message);
+    if (error) return res.status(400).json({message: error.details[0].message});
 
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(400).send("Invalid user id");
+    if (!user) return res.status(400).json({message: "Invalid user id"});
 
     const verificationToken = await VerificationToken.findOne({
         userId: user._id,
         token: req.params.token,
     });
-    if (!verificationToken) return res.status(400).send("Invalid verification token");
+    if (!verificationToken) return res.status(400).json({message: "Invalid verification token"});
 
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = bcrypt.hashSync(req.body.password, salt);
@@ -86,4 +86,6 @@ module.exports.restPassword = async (req, res) => {
     await user.save();
 
     await verificationToken.deleteOne();
+
+    res.status(200).json({message: "Password reset successful"});
 };

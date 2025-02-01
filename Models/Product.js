@@ -5,52 +5,41 @@ const variantSchema = new mongoose.Schema(
         ram: {
             type: String,
             required: function () {
-                return this.category === "Phones";
+                return this.category === "Phones"; // Only required if category is "Phones"
             },
         },
         storage: {
             type: String,
             required: function () {
-                return this.category === "Phones";
+                return this.category === "Phones"; // Only required if category is "Phones"
             },
         },
         batteryLife: {
             type: String,
             required: function () {
-                return this.category === "Headphones";
+                return this.category === "Headphones"; // Only required if category is "Headphones"
             },
         },
         noiseCancellation: {
             type: Boolean,
             required: function () {
-                return this.category === "Headphones";
+                return this.category === "Headphones"; // Only required if category is "Headphones"
             },
         },
         screenType: {
             type: String,
             required: function () {
-                return this.category === "Smartwatches";
+                return this.category === "Smartwatches"; // Only required if category is "Smartwatches"
             },
         },
         waterResistant: {
             type: Boolean,
             required: function () {
-                return this.category === "Smartwatches";
+                return this.category === "Smartwatches"; // Only required if category is "Smartwatches"
             },
         },
-        price: {
-            type: Number,
-            required: true,
-            min: 0,
-        },
-        stock: {
-            type: Number,
-            required: true,
-            min: 0,
-        },
-         // Disables automatic creation of _id for each variant
     },
-     // To ensure that this schema doesn't create its own _id field
+    {_id: false} // To disable _id creation for variants
 );
 
 const productSchema = new mongoose.Schema(
@@ -65,7 +54,7 @@ const productSchema = new mongoose.Schema(
         brand: {
             type: String,
             required: true,
-            minlength: 5,
+            minlength: 3,
             maxlength: 255,
             trim: true,
         },
@@ -106,12 +95,6 @@ const productSchema = new mongoose.Schema(
                 min: 0,
             },
         },
-        // reviews: [
-        //     {
-        //         type: mongoose.Schema.Types.ObjectId,
-        //         ref: "Review",
-        //     },
-        // ],
         seller: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -127,11 +110,21 @@ const productSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
-        variants: [variantSchema],
+        price: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+        stock: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+        variants: variantSchema,
     },
     {timestamps: true}
 );
 
-const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
+const Product = mongoose.models.Product || mongoose.model("Product", productSchema);
 
 module.exports = {Product};
