@@ -5,6 +5,7 @@ const userRouter = require("../routes/userRouter");
 const reviewsRouter = require("../routes/reviewsRouter");
 const cartRouter = require("../routes/cartRouter");
 const paymentRouter = require("../routes/paymentRouter");
+const couponRouter = require("../routes/couponRouter");
 
 const routes = (app) => {
     app.use("/api/auth", authRouter);
@@ -14,6 +15,7 @@ const routes = (app) => {
     app.use("/api/reviews", reviewsRouter);
     app.use("/api/cart", cartRouter);
     app.use("/api/payments", paymentRouter);
+    app.use("/api/coupons", couponRouter);
 };
 
 module.exports = routes;

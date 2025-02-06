@@ -21,49 +21,79 @@ const removeFiles = async (filePaths) => {
 // Controller for getting all products with pagination and filtering by brand and category only
 // Controller for getting all products with pagination and filtering by brand and category only
 module.exports.getAllProducts = async (req, res) => {
-    // Destructure the query parameters
-    const {page = 1, limit = 12, categories = "", sortOrder = "asc", searchQuery = ""} = req.query;
+    // Destructure query parameters with default values
+    // Here, limit is defaulted to an empty string
+    const {
+        page = "1",
+        limit = "4",
+        categories = "",
+        sortOrder = "asc",
+        searchQuery = "",
+    } = req.query;
 
-    // Parse the categories query parameter into an array if it's a string
-    const categoryArray = categories ? categories.split(",") : [];
-
-    const pageNumber = parseInt(page, 10);
-    const pageSize = parseInt(limit, 10);
-
+    // Build the filters based on query parameters
     const filters = {};
 
-    // Apply the categories filter if any categories are provided
+    // Process categories filter
+    const categoryArray = categories ? categories.split(",") : [];
     if (categoryArray.length > 0) {
         filters.category = {$in: categoryArray};
     }
 
-    // Apply the search query filter if provided
+    // Process search query filter
     if (searchQuery) {
-        filters.name = {$regex: searchQuery, $options: "i"}; // Case-insensitive search by product name
+        filters.name = {$regex: searchQuery, $options: "i"}; // Case-insensitive search
     }
 
-    // Sorting options (price)
+    // Define sorting options (by price)
     const order = sortOrder === "desc" ? -1 : 1;
     const sortOptions = {price: order};
 
-    // Fetch products from the database based on the filters and pagination
-    const products = await Product.find(filters)
-        .populate("seller", "username profilePicture")
-        .select("-__v")
-        .skip((pageNumber - 1) * pageSize)
-        .limit(pageSize)
-        .sort(sortOptions);
+    try {
+        let products, totalProducts, currentPage, pageSize, totalPages;
 
-    const totalProducts = await Product.countDocuments(filters);
-    const totalPages = Math.ceil(totalProducts / pageSize);
+        // If limit is empty (or explicitly set to "all"), fetch all data
+        if (!limit || limit.toLowerCase() === "all") {
+            products = await Product.find(filters)
+                .populate("seller", "username profilePicture")
+                .select("-__v")
+                .sort(sortOptions);
 
-    res.json({
-        products,
-        totalProducts,
-        totalPages,
-        currentPage: pageNumber,
-        pageSize,
-    });
+            totalProducts = products.length;
+            currentPage = 1;
+            pageSize = totalProducts;
+            totalPages = 1; // All data in a single "page"
+        } else {
+            // Parse page and limit as integers
+            const pageNumber = parseInt(page, 10) || 1;
+            const parsedLimit = parseInt(limit, 10);
+
+            // If parsedLimit is not a valid number, you might want to provide a fallback value
+            const effectiveLimit = isNaN(parsedLimit) ? 4 : parsedLimit;
+
+            products = await Product.find(filters)
+                .populate("seller", "username profilePicture")
+                .select("-__v")
+                .skip((pageNumber - 1) * effectiveLimit)
+                .limit(effectiveLimit)
+                .sort(sortOptions);
+
+            totalProducts = await Product.countDocuments(filters);
+            totalPages = Math.ceil(totalProducts / effectiveLimit);
+            currentPage = pageNumber;
+            pageSize = effectiveLimit;
+        }
+
+        res.json({
+            products,
+            totalProducts,
+            totalPages,
+            currentPage,
+            pageSize,
+        });
+    } catch (error) {
+        res.status(500).json({message: "Server Error", error});
+    }
 };
 
 /**
