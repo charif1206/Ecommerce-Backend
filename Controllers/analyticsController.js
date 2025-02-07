@@ -3,13 +3,16 @@ const Order = require("../Models/Order");
 const {Product} = require("../Models/Product");
 const {User} = require("../Models/user");
 
-const getAnalyticsData = async (userId) => {
+const getAnalyticsData = async (userId, roles) => {
     const userIdObject = new mongoose.Types.ObjectId(userId);
-    // Count total users
-    const totalUsers = await User.find({_id: userId}).countDocuments();
+    let totalUsers = 0;
 
     // Count total products that belong to the current seller
     const totalProducts = await Product.find({seller: userId}).countDocuments();
+
+    if (roles === "admin") {
+        totalUsers = await User.find().countDocuments();
+    }
 
     const salesDataFinal = await Order.aggregate([
         // Unwind products to get each product in the order separately
