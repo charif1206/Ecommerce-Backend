@@ -7,6 +7,7 @@ const cartRouter = require("../routes/cartRouter");
 const paymentRouter = require("../routes/paymentRouter");
 const couponRouter = require("../routes/couponRouter");
 const orderRouter = require("../routes/orderRouter");
+const analyticsRouter = require("../routes/analyticsRouter");
 
 const routes = (app) => {
     app.use("/api/auth", authRouter);
@@ -18,6 +19,7 @@ const routes = (app) => {
     app.use("/api/payments", paymentRouter);
     app.use("/api/coupons", couponRouter);
     app.use("/api/orders", orderRouter);
+    app.use("/api/analytics" , analyticsRouter);
 };
 
 module.exports = routes;
