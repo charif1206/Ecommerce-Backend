@@ -39,13 +39,16 @@ module.exports.Login = async (req, res) => {
 
         await sendMail(user.email, subject, text);
 
-        res.status(400).json({message: "we sent a verification link to your email"});
+        return res.status(400).json({message: "We sent a verification link to your email"});
     }
+
+    // Update lastLogin property before generating the token.
+    user.lastLogin = Date.now();
+    await user.save();
 
     generateTokenAndSetCookies(res, user._id, user.roles);
 
     const userObject = user.toObject();
-
     delete userObject.password;
 
     res.status(200).json(userObject);
@@ -58,14 +61,14 @@ module.exports.Login = async (req, res) => {
  */
 
 module.exports.googleAuth = async (req, res) => {
-    const {idToken} = req.body;
+    const { idToken } = req.body;
 
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
-        const {email, name, picture} = decodedToken;
+        const { email, name, picture } = decodedToken;
 
         // Check if the user already exists
-        let user = await User.findOne({email});
+        let user = await User.findOne({ email });
 
         if (!user) {
             // If the user does not exist, create a new user
@@ -74,7 +77,7 @@ module.exports.googleAuth = async (req, res) => {
                 email,
                 password: "GoogleAuthUser", // It's better to set it to null instead of a hardcoded password
                 profilePicture: {
-                    url: picture || "", // Provide a fallback if no picture is available
+                    url: picture || "",
                     publicId: null,
                 },
                 isAdmin: false,
@@ -85,20 +88,24 @@ module.exports.googleAuth = async (req, res) => {
             return res.status(201).json(user);
         }
 
-        // If the user exists, generate a token and set cookies
+        // Update lastLogin for existing users
+        user.lastLogin = Date.now();
+        await user.save();
+
+        // Generate token and set cookies
         generateTokenAndSetCookies(res, user._id, user.isAdmin);
 
         return res.status(200).json(user);
     } catch (error) {
-        // Log the error for debugging
         console.error("Error during Google authentication:", error);
 
         return res.status(401).json({
             message: "Unauthorized",
-            error: error.message || "An error occurred", // Provide more information on the error
+            error: error.message || "An error occurred",
         });
     }
 };
+
 
 /**
  * @route   POST /api/auth/register

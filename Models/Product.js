@@ -106,6 +106,12 @@ const productSchema = new mongoose.Schema(
                 ref: "User",
             },
         ],
+        favorites: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+            },
+        ],
         isSponsored: {
             type: Boolean,
             default: false,
@@ -121,6 +127,10 @@ const productSchema = new mongoose.Schema(
             min: 0,
         },
         variants: variantSchema,
+        isDeleted: {
+            type: Boolean,
+            default: false,
+        },
     },
     {timestamps: true}
 );

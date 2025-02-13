@@ -1,25 +1,21 @@
 const {Product} = require("../Models/Product");
 const Review = require("../models/Review");
 
-// Get all reviews for a product
-
+// Get all reviews for a product (reviews remain unchanged even if the product is soft-deleted)
 exports.getProductReviews = async (req, res) => {
     try {
         const {productId} = req.params;
-        // Get page and limit from query parameters, defaulting to page 1 and limit 10
         const {page = 1, limit = 10} = req.query;
         const pageNumber = parseInt(page, 10);
         const pageSize = parseInt(limit, 10);
         const skip = (pageNumber - 1) * pageSize;
 
-        // Get paginated reviews
         const reviews = await Review.find({productId})
-            .populate("user", "username profilePicture") // Populate user info
+            .populate("user", "username profilePicture")
             .sort({createdAt: -1})
             .skip(skip)
             .limit(pageSize);
 
-        // Get total count and calculate total pages
         const totalReviews = await Review.countDocuments({productId});
         const totalPages = Math.ceil(totalReviews / pageSize);
 
@@ -34,10 +30,16 @@ exports.getProductReviews = async (req, res) => {
     }
 };
 
+// Add a review (only if the product exists and is not soft-deleted)
 exports.addReview = async (req, res) => {
     const {productId} = req.params; // Get product ID from URL
-    const {rating, comment} = req.body; // Get rating and comment from the body
-    const user = req.user.userId; // Assume the user ID comes from the auth middleware
+    const {rating, comment} = req.body; // Get rating and comment
+    const user = req.user.userId; // Assume the user ID comes from auth middleware
+
+    // Check if the product exists and is not soft-deleted
+    const product = await Product.findById(productId);
+    if (!product) return res.status(404).send("Product not found");
+    if (product.isDeleted) return res.status(400).send("Cannot review a deleted product");
 
     // Check if the user has already reviewed this product
     const existingReview = await Review.findOne({productId, user});
@@ -61,23 +63,23 @@ exports.addReview = async (req, res) => {
     const averageRating = totalRating / reviews.length;
 
     // Update the product's average rating and review count
-    const product = await Product.findById(productId);
     product.ratings.average = averageRating;
     product.ratings.count = reviews.length;
     await product.save();
 
-    res.status(201).json(review); // Return the created review
+    res.status(201).json(review);
 };
 
+// Update a review
 exports.updateReview = async (req, res) => {
-    const {reviewId} = req.params; // Get review ID from the URL
-    const {rating, comment} = req.body; // Get updated rating and comment
+    const {reviewId} = req.params;
+    const {rating, comment} = req.body;
 
     // Ensure the review belongs to the user
     const review = await Review.findOneAndUpdate(
-        {_id: reviewId, user: req.user.userId}, // Only allow user to update their own review
+        {_id: reviewId, user: req.user.userId},
         {rating, comment},
-        {new: true} // Return the updated review
+        {new: true}
     );
 
     if (!review) {
@@ -98,28 +100,21 @@ exports.updateReview = async (req, res) => {
     res.status(200).json(review);
 };
 
+// Delete a review
 exports.deleteReview = async (req, res) => {
-    const {reviewId} = req.params; // Get review ID from the URL
+    const {reviewId} = req.params;
 
     // Find the review to delete
     const review = await Review.findById(reviewId);
-
-    console.log(req.user.userId.toString(), review.user.toString());
-    
-
-    // Check if the review exists and if the user is either the review owner or an admin
     if (!review) {
         return res.status(404).json({message: "Review not found"});
     }
 
-    
-
-    // Check if the user is the owner or an admin
+    // Check if the review belongs to the user or if the user is an admin
     if (review.user.toString() !== req.user.userId.toString() && req.user.role !== "admin") {
         return res.status(403).json({message: "You are not authorized to delete this review"});
     }
 
-    // Delete the review
     await Review.findByIdAndDelete(reviewId);
 
     // Recalculate the average rating for the product after deletion

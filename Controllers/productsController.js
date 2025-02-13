@@ -1,12 +1,11 @@
 const path = require("path");
 const fs = require("fs").promises;
 const {cloudinaryUploads, cloudinaryDeletes} = require("../utils/cloudinary");
-
 const {validateProduct} = require("../Validation/productValidation");
 const {Product} = require("../Models/Product");
 const removeFiles = async (filePaths) => {
     try {
-        await Promise.all(filePaths.map((path) => fs.unlink(path)));
+        await Promise.all(filePaths.map((file) => fs.unlink(file)));
     } catch (err) {
         console.error(`Error deleting files: ${err.message}`);
     }
@@ -14,15 +13,10 @@ const removeFiles = async (filePaths) => {
 
 /**
  * @route   GET /api/products
- * @desc    Retrieves all products with basic seller information
+ * @desc    Retrieves all products with basic seller information (excluding soft-deleted)
  * @access  Public
  */
-
-// Controller for getting all products with pagination and filtering by brand and category only
-// Controller for getting all products with pagination and filtering by brand and category only
 module.exports.getAllProducts = async (req, res) => {
-    // Destructure query parameters with default values
-    // Here, limit is defaulted to an empty string
     const {
         page = "1",
         limit = "4",
@@ -31,8 +25,8 @@ module.exports.getAllProducts = async (req, res) => {
         searchQuery = "",
     } = req.query;
 
-    // Build the filters based on query parameters
-    const filters = {};
+    // Build filters
+    const filters = {isDeleted: {$ne: true}}; // Exclude soft-deleted
 
     // Process categories filter
     const categoryArray = categories ? categories.split(",") : [];
@@ -42,7 +36,7 @@ module.exports.getAllProducts = async (req, res) => {
 
     // Process search query filter
     if (searchQuery) {
-        filters.name = {$regex: searchQuery, $options: "i"}; // Case-insensitive search
+        filters.name = {$regex: searchQuery, $options: "i"};
     }
 
     // Define sorting options (by price)
@@ -62,13 +56,10 @@ module.exports.getAllProducts = async (req, res) => {
             totalProducts = products.length;
             currentPage = 1;
             pageSize = totalProducts;
-            totalPages = 1; // All data in a single "page"
+            totalPages = 1;
         } else {
-            // Parse page and limit as integers
             const pageNumber = parseInt(page, 10) || 1;
             const parsedLimit = parseInt(limit, 10);
-
-            // If parsedLimit is not a valid number, you might want to provide a fallback value
             const effectiveLimit = isNaN(parsedLimit) ? 4 : parsedLimit;
 
             products = await Product.find(filters)
@@ -98,12 +89,17 @@ module.exports.getAllProducts = async (req, res) => {
 
 /**
  * @route   GET /api/products/:id
- * @desc    Retrieves a product by its ID with seller details
+ * @desc    Retrieves a product by its ID with seller details (excluding soft-deleted)
  * @access  Public
  */
-
 module.exports.getProduct = async (req, res) => {
-    const product = await Product.findById(req.params.id).populate("seller").select("-__v");
+    const product = await Product.findOne({
+        _id: req.params.id,
+        isDeleted: {$ne: true},
+    })
+        .populate("seller")
+        .select("-__v");
+
     if (!product) {
         return res.status(404).json({message: "Product not found"});
     }
@@ -111,100 +107,197 @@ module.exports.getProduct = async (req, res) => {
 };
 
 /**
-    @route   POST /api/products
-    @desc    Creates a new product with optional variants and image uploads
-    @access  Private (Admin-only access recommended)
-*/
+ * @route   GET /api/products/seller/:id
+ * @desc    Retrieves products for a particular seller (excluding soft-deleted)
+ * @access  Public
+ */
+exports.getSellerProducts = async (req, res) => {
+    const {id: sellerId} = req.params;
+    const products = await Product.find({
+        seller: sellerId,
+        isDeleted: {$ne: true},
+    });
 
-module.exports.createProduct = async (req, res) => {
-    try {
-        const files = req.files;
-
-        if (!files || files.length === 0) {
-            return res.status(400).json({message: "No files uploaded"});
-        }
-
-        // Parse JSON fields if they exist
-        req.body.variants = req.body.variants ? JSON.parse(req.body.variants) : {};
-        req.body.ratings = req.body.ratings ? JSON.parse(req.body.ratings) : {average: 0, count: 0};
-
-        // Validate product data
-        const {error} = validateProduct(req.body);
-        if (error) {
-            return res.status(400).send({error: error.details[0].message});
-        }
-
-        // Upload images to Cloudinary
-        const uploadedImages = await cloudinaryUploads(files.map((file) => file.path));
-
-        // Format the uploaded images for storage
-        const productImages = uploadedImages.map((image) => ({
-            url: image.secure_url,
-            publicId: image.public_id,
-        }));
-
-        // Attach product images to the request
-        req.body.productImages = productImages;
-
-        // Save the new product
-        const newProduct = new Product(req.body);
-        const savedProduct = await newProduct.save();
-
-        res.status(201).json({message: "Product created successfully", product: savedProduct});
-
-        // Cleanup local files after successful upload
-        await removeFiles(files);
-    } catch (error) {
-        console.error("Error creating product:", error);
-        res.status(500).json({message: "Internal server error", error: error.message});
-    }
+    return res.status(200).json({products});
 };
 
 /**
-    @route   DELETE /api/products/:id
-    @desc    Deletes a product by its ID and removes associated images from Cloudinary
-    @access  Private (Admin-only access recommended)
-*/
-module.exports.deleteProduct = async (req, res) => {
-    const product = await Product.findById(req.params.id);
+ * @route   POST /api/products
+ * @desc    Creates a new product with optional variants and image uploads
+ * @access  Private (Admin-only access recommended)
+ */
+module.exports.createProduct = async (req, res) => {
+    const files = req.files;
 
-    const images = product.productImages;
-    const publicIds = images.map((image) => image.publicId);
-
-    if (publicIds.length > 0) {
-        await cloudinaryDeletes(publicIds);
+    if (!files || files.length === 0) {
+        return res.status(400).json({message: "No files uploaded"});
     }
 
-    await Product.findByIdAndDelete(req.params.id);
-    res.status(200).json({message: "Product deleted"});
+    // Parse JSON fields if they exist
+    req.body.variants = req.body.variants ? JSON.parse(req.body.variants) : {};
+    req.body.ratings = req.body.ratings ? JSON.parse(req.body.ratings) : {average: 0, count: 0};
+
+    // Validate product data
+    const {error} = validateProduct(req.body);
+    if (error) {
+        return res.status(400).send({error: error.details[0].message});
+    }
+
+    // Upload images to Cloudinary
+    const uploadedImages = await cloudinaryUploads(files.map((file) => file.path));
+
+    // Format the uploaded images for storage
+    const productImages = uploadedImages.map((image) => ({
+        url: image.secure_url,
+        publicId: image.public_id,
+    }));
+
+    req.body.productImages = productImages;
+
+    // isDeleted = false by default in your schema (soft-deletion approach)
+    const newProduct = new Product(req.body);
+    const savedProduct = await newProduct.save();
+
+    res.status(201).json({message: "Product created successfully", product: savedProduct});
+
+    // Cleanup local files
+    await removeFiles(files.map((file) => file.path));
 };
 
-// module.exports.createProduct = async (req, res) => {
-//     const files = req.files;
+/**
+ * @route   PATCH /api/products/toggleLike/:id
+ * @desc    Toggles the like status for a product (only if not soft-deleted)
+ * @access  Private
+ */
+module.exports.toggleLike = async (req, res) => {
+    const {id: postId} = req.params;
+    const {userId} = req.user;
 
-//     if (req.body.variants) {
-//         req.body.variants = Array.isArray(req.body.variants)
-//             ? req.body.variants.map((variant) => JSON.parse(variant)) // Parse each variant string
-//             : [JSON.parse(req.body.variants)]; // Single variant case
-//     } else {
-//         req.body.variants = []; // Default to an empty array if no variants
-//     }
+    // Exclude soft-deleted products
+    let product = await Product.findOne({
+        _id: postId,
+        isDeleted: {$ne: true},
+    });
+    if (!product) {
+        return res.status(404).json({message: "Product not found or deleted"});
+    }
 
-//     const {error} = validateProduct(req.body);
+    const isLiked = product.likes.includes(userId);
+    let post;
+    if (isLiked) {
+        post = await Product.findByIdAndUpdate(postId, {$pull: {likes: userId}}, {new: true});
+    } else {
+        post = await Product.findByIdAndUpdate(postId, {$push: {likes: userId}}, {new: true});
+    }
 
-//     if (error) {
-//         await removeFiles(files.map((file) => file.path));
-//         return res.status(400).send({error: error.details[0].message});
-//     }
+    res.json({likes: post.likes.length});
+};
 
-//     // if (req.files.length === 0) return res.status(400).json({message: "No files uploaded"});
+/**
+ * @route   PATCH /api/products/toggleFavorite/:id
+ * @desc    Toggles the favorite status for a product (only if not soft-deleted)
+ * @access  Private
+ */
+module.exports.toggleFavorite = async (req, res) => {
+    const {id: postId} = req.params;
+    const {userId} = req.user;
 
-//     if (req.files.length > 4) {
-//         await removeFiles(files.map((file) => file.path));
-//         return res.status(400).json({message: "Too many files uploaded. Maximum of 4 allowed."});
-//     }
+    // Exclude soft-deleted products
+    let product = await Product.findOne({
+        _id: postId,
+        isDeleted: {$ne: true},
+    });
+    if (!product) {
+        return res.status(404).json({message: "Product not found or deleted"});
+    }
 
-//     const newProduct = new Product(req.body);
-//     const savedProduct = await newProduct.save();
-//     res.status(201).send({message: "Product created successfully", product: savedProduct});
-// };
+    let post;
+    const isFavorited = product.favorites.includes(userId);
+    if (isFavorited) {
+        post = await Product.findByIdAndUpdate(postId, {$pull: {favorites: userId}}, {new: true});
+    } else {
+        post = await Product.findByIdAndUpdate(postId, {$push: {favorites: userId}}, {new: true});
+    }
+
+    res.json({favorites: post.favorites.length});
+};
+
+/**
+ * @route   GET /api/products/liked
+ * @desc    Retrieves liked products for the authenticated user (excluding soft-deleted)
+ * @access  Private
+ */
+module.exports.getLikedProducts = async (req, res) => {
+    const userId = req.user.userId;
+
+    const likedProducts = await Product.find({
+        likes: userId,
+        isDeleted: {$ne: true},
+    }).populate("seller");
+
+    return res.status(200).json({products: likedProducts});
+};
+
+/**
+ * @route   GET /api/products/favorite
+ * @desc    Retrieves favorite products for the authenticated user (excluding soft-deleted)
+ * @access  Private
+ */
+module.exports.getFavoriteProducts = async (req, res) => {
+    const userId = req.user.userId;
+
+    const favoriteProducts = await Product.find({
+        favorites: userId,
+        isDeleted: {$ne: true},
+    }).populate("seller");
+
+    return res.status(200).json({products: favoriteProducts});
+};
+
+/**
+ * @route   PATCH /api/products/:productId
+ * @desc    Updates a product by its ID (only if not soft-deleted)
+ * @access  Private
+ */
+exports.updateProduct = async (req, res) => {
+    const {productId} = req.params;
+    const updateData = req.body;
+
+    // Exclude soft-deleted
+    const updatedProduct = await Product.findOneAndUpdate(
+        {_id: productId, isDeleted: {$ne: true}},
+        updateData,
+        {new: true, runValidators: true}
+    );
+
+    if (!updatedProduct) {
+        return res.status(404).json({message: "Product not found or has been deleted"});
+    }
+
+    return res.status(200).json({product: updatedProduct});
+};
+
+/**
+ * @route   DELETE /api/products/:id
+ * @desc    Soft-deletes a product by its ID (removes images from Cloudinary, marks isDeleted = true)
+ * @access  Private (Admin-only access recommended)
+ */
+module.exports.deleteProduct = async (req, res) => {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+        return res.status(404).json({message: "Product not found"});
+    }
+
+    // Remove images from Cloudinary if you want to free up space
+    // const images = product.productImages;
+    // const publicIds = images.map((image) => image.publicId);
+    // if (publicIds.length > 0) {
+    //     await cloudinaryDeletes(publicIds);
+    // }
+
+    // Mark product as deleted
+    product.isDeleted = true;
+    await product.save();
+
+    res.status(200).json({message: "Product soft-deleted"});
+};

@@ -1,12 +1,15 @@
 const Coupon = require("../Models/Coupon");
 const {User} = require("../Models/user");
 
+// Helper to generate a unique coupon code
 const generateCouponCode = () => {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `GIFT-${code}`;
 };
+
 exports.getUserCoupons = async (req, res) => {
-    const coupons = await Coupon.find({createdBy: req.user._id});
+    // Retrieve coupons associated with the current user using req.user.userId
+    const coupons = await Coupon.find({user: req.user.userId});
     res.json(coupons);
 };
 
@@ -27,12 +30,12 @@ exports.redeemCoupon = async (req, res) => {
             50: 250, // $50 coupon requires $250 minimum purchase
         };
 
-        const requiredCoins = value * 100;
+        const requiredCoins = value * 100; // e.g., a $50 coupon requires 5000 coins
         const minimumPurchase = minimumPurchaseMap[value];
 
-        // Atomic update to check and subtract coins
+        // Atomically check if the user has enough coins and subtract them
         const user = await User.findOneAndUpdate(
-            {_id: req.user._id, coins: {$gte: requiredCoins}},
+            {_id: req.user.userId, coins: {$gte: requiredCoins}},
             {$inc: {coins: -requiredCoins}},
             {new: true}
         );
@@ -41,10 +44,9 @@ exports.redeemCoupon = async (req, res) => {
             return res.status(400).json({error: "Insufficient coins"});
         }
 
-        // Generate unique coupon code
+        // Generate a unique coupon code
         let code;
         let isUnique = false;
-
         while (!isUnique) {
             code = generateCouponCode();
             const exists = await Coupon.exists({code});
@@ -53,9 +55,10 @@ exports.redeemCoupon = async (req, res) => {
             }
         }
 
+        // Create the coupon using the "user" field (from req.user.userId)
         const coupon = await Coupon.create({
             code,
-            createdBy: req.user._id,
+            user: req.user.userId,
             value,
             minimumPurchase,
         });
@@ -68,14 +71,14 @@ exports.redeemCoupon = async (req, res) => {
 
 exports.validateCoupon = async (req, res) => {
     const {code, cartTotal} = req.body;
-    const userId = req.user._id;
+    const userId = req.user.userId;
 
     if (!code || !cartTotal) {
         return res.status(400).json({error: "Code and cart total are required"});
     }
 
+    // Look up the coupon by code and user
     const coupon = await Coupon.findOne({code, user: userId});
-
     if (!coupon) {
         return res.status(404).json({error: "Coupon not found"});
     }

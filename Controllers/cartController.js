@@ -36,6 +36,11 @@ exports.addToCart = async (req, res) => {
     const product = await Product.findById(productId);
     if (!product) return res.status(404).send("Product not found");
 
+    // Check if product is soft-deleted
+    if (product.isDeleted) {
+        return res.status(404).send("Product not available");
+    }
+
     // Check stock availability
     if (product.stock < quantity) {
         return res.status(400).json({message: "Out Of Stock"});
@@ -78,7 +83,7 @@ exports.removeFromCart = async (req, res) => {
     const {productId} = req.body; // No variantId needed
     const userId = req.user.userId;
 
-    // Find the product
+    // Find the product (regardless of soft-deleted status)
     const product = await Product.findById(productId);
     if (!product) return res.status(404).send("Product not found");
 
@@ -119,10 +124,9 @@ exports.removeFromCart = async (req, res) => {
 exports.removeAllFromCart = async (req, res) => {
     try {
         const {productId} = req.body; // No variantId needed
-
         const userId = req.user.userId;
 
-        // Find the product
+        // Find the product (regardless of soft-deleted status)
         const product = await Product.findById(productId);
         if (!product) return res.status(404).send("Product not found");
 

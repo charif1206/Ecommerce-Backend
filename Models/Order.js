@@ -31,12 +31,18 @@ const orderSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["pending", "shipped", "delivered"],
+            enum: ["pending", "shipped", "delivered", "cancelled"],
             default: "pending",
         },
         stripeSessionId: {
             type: String,
             required: true,
+        },
+        // Optional coupon details subdocument
+        coupon: {
+            code: {type: String},
+            value: {type: Number},
+            minimumPurchase: {type: Number},
         },
     },
     {
