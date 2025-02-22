@@ -14,59 +14,57 @@ exports.getUserCoupons = async (req, res) => {
 };
 
 exports.redeemCoupon = async (req, res) => {
-    try {
-        const {value} = req.body;
-        const allowedValues = [5, 10, 20, 50];
+    const {value} = req.body;
+    const allowedValues = [5, 10, 20, 50];
+    console.log(value);
+    
 
-        if (!allowedValues.includes(value)) {
-            return res.status(400).json({error: "Invalid coupon value"});
-        }
-
-        // Define minimum purchase requirements
-        const minimumPurchaseMap = {
-            5: 25, // $5 coupon requires $25 minimum purchase
-            10: 50, // $10 coupon requires $50 minimum purchase
-            20: 100, // $20 coupon requires $100 minimum purchase
-            50: 250, // $50 coupon requires $250 minimum purchase
-        };
-
-        const requiredCoins = value * 100; // e.g., a $50 coupon requires 5000 coins
-        const minimumPurchase = minimumPurchaseMap[value];
-
-        // Atomically check if the user has enough coins and subtract them
-        const user = await User.findOneAndUpdate(
-            {_id: req.user.userId, coins: {$gte: requiredCoins}},
-            {$inc: {coins: -requiredCoins}},
-            {new: true}
-        );
-
-        if (!user) {
-            return res.status(400).json({error: "Insufficient coins"});
-        }
-
-        // Generate a unique coupon code
-        let code;
-        let isUnique = false;
-        while (!isUnique) {
-            code = generateCouponCode();
-            const exists = await Coupon.exists({code});
-            if (!exists) {
-                isUnique = true;
-            }
-        }
-
-        // Create the coupon using the "user" field (from req.user.userId)
-        const coupon = await Coupon.create({
-            code,
-            user: req.user.userId,
-            value,
-            minimumPurchase,
-        });
-
-        res.status(201).json(coupon);
-    } catch (error) {
-        res.status(400).json({error: error.message});
+    if (!allowedValues.includes(value)) {
+        return res.status(400).json({error: "Invalid coupon value"});
     }
+
+    // Define minimum purchase requirements
+    const minimumPurchaseMap = {
+        5: 25, // $5 coupon requires $25 minimum purchase
+        10: 50, // $10 coupon requires $50 minimum purchase
+        20: 100, // $20 coupon requires $100 minimum purchase
+        50: 250, // $50 coupon requires $250 minimum purchase
+    };
+
+    const requiredCoins = value * 100; // e.g., a $50 coupon requires 5000 coins
+    const minimumPurchase = minimumPurchaseMap[value];
+
+    // Atomically check if the user has enough coins and subtract them
+    const user = await User.findOneAndUpdate(
+        {_id: req.user.userId, coins: {$gte: requiredCoins}},
+        {$inc: {coins: -requiredCoins}},
+        {new: true}
+    );
+
+    if (!user) {
+        return res.status(400).json({error: "Insufficient coins"});
+    }
+
+    // Generate a unique coupon code
+    let code;
+    let isUnique = false;
+    while (!isUnique) {
+        code = generateCouponCode();
+        const exists = await Coupon.exists({code});
+        if (!exists) {
+            isUnique = true;
+        }
+    }
+
+    // Create the coupon using the "user" field (from req.user.userId)
+    const coupon = await Coupon.create({
+        code,
+        user: req.user.userId,
+        value,
+        minimumPurchase,
+    });
+
+    res.status(201).json(coupon);
 };
 
 exports.validateCoupon = async (req, res) => {

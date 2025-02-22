@@ -3,6 +3,7 @@ const fs = require("fs").promises;
 const {cloudinaryUploads, cloudinaryDeletes} = require("../utils/cloudinary");
 const {validateProduct} = require("../Validation/productValidation");
 const {Product} = require("../Models/Product");
+
 const removeFiles = async (filePaths) => {
     try {
         await Promise.all(filePaths.map((file) => fs.unlink(file)));
@@ -127,8 +128,14 @@ exports.getSellerProducts = async (req, res) => {
  * @access  Private (Admin-only access recommended)
  */
 module.exports.createProduct = async (req, res) => {
-    const files = req.files;
+    // Set the seller from the authenticated user (make sure req.user exists)
+    req.body.seller = req.user.userId;
 
+    // Convert numeric fields to numbers since they come in as strings
+    req.body.price = Number(req.body.price);
+    req.body.stock = Number(req.body.stock);
+
+    const files = req.files;
     if (!files || files.length === 0) {
         return res.status(400).json({message: "No files uploaded"});
     }
@@ -137,30 +144,33 @@ module.exports.createProduct = async (req, res) => {
     req.body.variants = req.body.variants ? JSON.parse(req.body.variants) : {};
     req.body.ratings = req.body.ratings ? JSON.parse(req.body.ratings) : {average: 0, count: 0};
 
-    // Validate product data
+    // Validate product data (using your existing validateProduct function)
     const {error} = validateProduct(req.body);
     if (error) {
         return res.status(400).send({error: error.details[0].message});
     }
 
-    // Upload images to Cloudinary
+    // Upload images to Cloudinary (assuming cloudinaryUploads is defined)
     const uploadedImages = await cloudinaryUploads(files.map((file) => file.path));
 
-    // Format the uploaded images for storage
+    // Format the uploaded images for storage in the productImages field
     const productImages = uploadedImages.map((image) => ({
         url: image.secure_url,
         publicId: image.public_id,
     }));
-
     req.body.productImages = productImages;
 
-    // isDeleted = false by default in your schema (soft-deletion approach)
+    // Create new product (soft-deletion is handled by default in your schema)
     const newProduct = new Product(req.body);
+    console.log("New product to be saved:", newProduct);
     const savedProduct = await newProduct.save();
 
-    res.status(201).json({message: "Product created successfully", product: savedProduct});
+    res.status(201).json({
+        message: "Product created successfully",
+        product: savedProduct,
+    });
 
-    // Cleanup local files
+    // Cleanup local files after successful upload
     await removeFiles(files.map((file) => file.path));
 };
 

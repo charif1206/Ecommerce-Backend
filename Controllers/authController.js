@@ -23,7 +23,7 @@ module.exports.Login = async (req, res) => {
         return res.status(400).json({message: "Invalid password"});
     }
 
-    if (!user.isVerified) {
+    if(!user.isVerified){
         let verificationToken = await VerificationToken.findOne({user: user._id});
         if (!verificationToken) {
             verificationToken = new VerificationToken({

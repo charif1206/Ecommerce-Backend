@@ -1,74 +1,65 @@
+const generateTokenAndSetCookies = require("../middleware/generateTokenAndSetCookies");
 const Cart = require("../Models/Cart");
 const Coupon = require("../Models/Coupon");
 const Order = require("../Models/Order");
 const {User} = require("../Models/user");
 const stripe = require("../utils/stripe");
-const dotenv = require("dotenv");
-dotenv.config();
 
 module.exports.createCheckoutSession = async (req, res) => {
     const {couponCode} = req.body;
     const userId = req.user.userId;
 
-    // Get user's cart and populate product details
-    const cart = await Cart.findOne({userId: req.user.userId}).populate("items.productId");
-
-    if (!cart) {
-        return res.status(404).json({error: "Cart not found"});
-    }
-    if (!cart.items || cart.items.length === 0) {
+    const cart = await Cart.findOne({userId}).populate("items.productId");
+    if (!cart || !cart.items?.length) {
         return res.status(400).json({error: "Cart is empty"});
     }
 
-    // Calculate original cart total (assumed already computed in cart.totalPrice)
-    const originalTotal = cart.totalPrice;
+    // Coupon handling
     let discountValue = 0;
-    let coupon = null;
     if (couponCode) {
-        // Look up the coupon using the "user" field
-        coupon = await Coupon.findOne({code: couponCode, user: userId});
+        const coupon = await Coupon.findOne({code: couponCode, user: userId});
         if (coupon) {
+            if (cart.totalPrice < coupon.minimumPurchase) {
+                return res.status(400).json({
+                    error: `Minimum purchase of $${coupon.minimumPurchase} required`,
+                });
+            }
             discountValue = coupon.value;
         }
     }
 
-    // Final total after discount
-    const finalTotal = originalTotal - discountValue;
-
-    // Recalculate line items proportionally so that the sum equals finalTotal
-    // For each item, compute its original total and then its proportional discount share.
+    // Price calculations
+    const finalTotal = cart.totalPrice - discountValue;
     const line_items = cart.items.map((item) => {
-        const itemOriginalTotal = item.price * item.quantity; // total price for this item
-        const itemDiscount = (itemOriginalTotal / originalTotal) * discountValue;
-        const newItemTotal = itemOriginalTotal - itemDiscount;
-        const newUnitPrice = newItemTotal / item.quantity; // adjusted unit price
+        const itemTotal = item.price * item.quantity;
+        const discountShare = (itemTotal / cart.totalPrice) * discountValue;
+        const adjustedPrice = (itemTotal - discountShare) / item.quantity;
+
         return {
             price_data: {
                 currency: "usd",
                 product_data: {
                     name: item.productId.name,
-                    images:
-                        item.productId.productImages && item.productId.productImages.length > 0
-                            ? item.productId.productImages.map((img) => img.url)
-                            : [],
+                    images: item.productId.productImages?.map((img) => img.url) || [],
                 },
-                unit_amount: Math.round(newUnitPrice * 100), // convert dollars to cents
+                unit_amount: Math.round(adjustedPrice * 100),
             },
             quantity: item.quantity,
         };
     });
 
-    // Create Stripe checkout session using the adjusted line items
+    // Create Stripe session
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         line_items,
         mode: "payment",
-        success_url: `http://localhost:5173/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `http://localhost:5173/cart`,
+        success_url: "http://localhost:5173/order-success?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url: "http://localhost:5173/cart",
         metadata: {
-            userId: req.user.userId.toString(),
-            couponCode: couponCode || null,
+            userId: userId.toString(),
+            couponCode: couponCode || "",
             cartId: cart._id.toString(),
+            purchaseType: "product",
         },
     });
 
@@ -79,24 +70,89 @@ module.exports.createCheckoutSession = async (req, res) => {
     });
 };
 
+/**
+ * Seller Upgrade Checkout ($300 fixed price)
+ */
+module.exports.createSellerUpgrade = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const user = await User.findById(userId);
+
+        if (user.roles === "seller") {
+            return res.status(400).json({error: "Already a seller"});
+        }
+
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ["card"],
+            line_items: [
+                {
+                    price_data: {
+                        currency: "usd",
+                        product_data: {
+                            name: "Premium Seller Package",
+                            description: "One-time payment for seller privileges",
+                        },
+                        unit_amount: 30000, // $300 in cents
+                    },
+                    quantity: 1,
+                },
+            ],
+            mode: "payment",
+            success_url:
+                "http://localhost:5173/seller-upgrade-success?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url: `http://localhost:5173/profile/${userId}`,
+            metadata: {
+                userId: userId,
+                purchaseType: "seller_upgrade",
+            },
+        });
+
+        res.status(200).json({
+            id: session.id,
+            url: session.url,
+        });
+    } catch (error) {
+        console.error("Upgrade error:", error);
+        res.status(500).json({error: "Upgrade failed"});
+    }
+};
+
+/**
+ * Unified Success Handler
+ */
 module.exports.checkoutSuccess = async (req, res) => {
     const {sessionId} = req.body;
+    console.log("Session ID:", sessionId);
 
-    // Retrieve Stripe session
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-    // Only process if payment is completed
     if (session.payment_status !== "paid") {
         return res.status(400).json({error: "Payment not completed"});
     }
 
-    // Find user's cart and populate product details
+    // Handle Seller Upgrade
+    if (session.metadata.purchaseType === "seller_upgrade") {
+        // Update user role to seller in the database
+        await User.findByIdAndUpdate(session.metadata.userId, {
+            roles: "seller",
+        });
+
+        // Generate a new token with updated role and set it as a cookie
+        const newToken = generateTokenAndSetCookies(res, session.metadata.userId, "seller");
+
+        return res.status(200).json({
+            message: "Seller account upgraded successfully!",
+            token: newToken,
+        });
+    }
+
+    // Handle Product Purchase
     const cart = await Cart.findOne({userId: session.metadata.userId}).populate("items.productId");
     if (!cart) {
         return res.status(404).json({error: "Cart not found"});
     }
 
-    // Prepare coupon details if a coupon was used
+    // Process coupon
     let couponDetails = null;
     if (session.metadata.couponCode) {
         const couponDoc = await Coupon.findOne({
@@ -109,7 +165,6 @@ module.exports.checkoutSuccess = async (req, res) => {
                 value: couponDoc.value,
                 minimumPurchase: couponDoc.minimumPurchase,
             };
-            // Remove the coupon so it cannot be reused
             await Coupon.findOneAndDelete({
                 code: session.metadata.couponCode,
                 user: session.metadata.userId,
@@ -117,15 +172,12 @@ module.exports.checkoutSuccess = async (req, res) => {
         }
     }
 
-    // Calculate coins earned (example: 2.5 coins per dollar paid)
-    const coinsEarned = Math.round((session.amount_total / 100) * 2.5);
-
-    // Update user's coins
+    const coinsEarned = Math.round((session.amount_total / 100) * 5);
     await User.findByIdAndUpdate(session.metadata.userId, {
         $inc: {coins: coinsEarned},
     });
 
-    // Create an order using the cart items and include coupon details if applicable
+    // Create order
     const newOrder = new Order({
         userId: session.metadata.userId,
         products: cart.items.map((item) => ({
@@ -140,14 +192,14 @@ module.exports.checkoutSuccess = async (req, res) => {
 
     await newOrder.save();
 
-    // Clear the cart after order creation
+    // Clear cart
     await Cart.findByIdAndUpdate(cart._id, {
         $set: {items: [], totalPrice: 0},
     });
 
     res.status(200).json({
         orderId: newOrder._id,
-        message: "Payment successful, order created",
+        message: "Order completed successfully",
         amount: session.amount_total / 100,
         coinsEarned,
     });

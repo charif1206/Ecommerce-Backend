@@ -9,6 +9,7 @@ const {User} = require("../Models/user");
  */
 const getAnalyticsData = async (userId, roles) => {
     const userIdObject = new mongoose.Types.ObjectId(userId);
+    
     let totalUsers = 0;
 
     // Count total products that belong to the current seller (excluding deleted).
