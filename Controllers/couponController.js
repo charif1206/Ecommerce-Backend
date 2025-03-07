@@ -17,7 +17,6 @@ exports.redeemCoupon = async (req, res) => {
     const {value} = req.body;
     const allowedValues = [5, 10, 20, 50];
     console.log(value);
-    
 
     if (!allowedValues.includes(value)) {
         return res.status(400).json({error: "Invalid coupon value"});
@@ -57,14 +56,14 @@ exports.redeemCoupon = async (req, res) => {
     }
 
     // Create the coupon using the "user" field (from req.user.userId)
-    const coupon = await Coupon.create({
+    await Coupon.create({
         code,
         user: req.user.userId,
         value,
         minimumPurchase,
     });
 
-    res.status(201).json(coupon);
+    res.status(201).json({message: "Coupon redeemed successfully"});
 };
 
 exports.validateCoupon = async (req, res) => {
@@ -88,8 +87,6 @@ exports.validateCoupon = async (req, res) => {
     }
 
     res.json({
-        valid: true,
-        value: coupon.value,
         message: "Coupon applied successfully",
     });
 };

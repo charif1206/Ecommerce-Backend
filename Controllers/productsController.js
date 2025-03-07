@@ -298,13 +298,6 @@ module.exports.deleteProduct = async (req, res) => {
         return res.status(404).json({message: "Product not found"});
     }
 
-    // Remove images from Cloudinary if you want to free up space
-    // const images = product.productImages;
-    // const publicIds = images.map((image) => image.publicId);
-    // if (publicIds.length > 0) {
-    //     await cloudinaryDeletes(publicIds);
-    // }
-
     // Mark product as deleted
     product.isDeleted = true;
     await product.save();

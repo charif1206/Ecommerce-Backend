@@ -122,7 +122,6 @@ module.exports.createSellerUpgrade = async (req, res) => {
  */
 module.exports.checkoutSuccess = async (req, res) => {
     const {sessionId} = req.body;
-    console.log("Session ID:", sessionId);
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
