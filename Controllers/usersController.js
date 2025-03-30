@@ -86,3 +86,20 @@ module.exports.deleteUser = async (req, res) => {
     await user.remove();
     res.send(user);
 };
+
+module.exports.updatePhoneNumber = async (req, res) => {
+    const {id} = req.params;
+    const {phoneNumber} = req.body;
+
+    // Find the user by ID
+    const user = await User.findById(id);
+    if (!user) {
+        return res.status(404).json({message: "User not found"});
+    }
+
+    // Update the phone number
+    user.phoneNumber = phoneNumber;
+    await user.save();
+
+    res.status(200).json({message: "Phone number updated successfully"});
+};

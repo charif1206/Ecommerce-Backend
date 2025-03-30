@@ -127,7 +127,7 @@ exports.getSellerProducts = async (req, res) => {
  * @desc    Creates a new product with optional variants and image uploads
  * @access  Private (Admin-only access recommended)
  */
-module.exports.createProduct = async (req, res) => {
+module.exports.createProduct = async (req, res) => {    
     // Set the seller from the authenticated user (make sure req.user exists)
     req.body.seller = req.user.userId;
 

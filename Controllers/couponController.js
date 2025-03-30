@@ -63,7 +63,7 @@ exports.redeemCoupon = async (req, res) => {
         minimumPurchase,
     });
 
-    res.status(201).json({message: "Coupon redeemed successfully"});
+    res.status(201).json({message: "Coupon redeemed successfully" , code , value});
 };
 
 exports.validateCoupon = async (req, res) => {
