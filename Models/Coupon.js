@@ -28,6 +28,7 @@ const couponSchema = new mongoose.Schema(
     }
 );
 
-const Coupon = mongoose.model("Coupon", couponSchema);
+// ✅ Prevent OverwriteModelError
+const Coupon = mongoose.models.Coupon || mongoose.model("Coupon", couponSchema);
 
-module.exports = Coupon;
+module.exports = {Coupon};

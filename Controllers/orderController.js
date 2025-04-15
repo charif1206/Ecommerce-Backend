@@ -22,7 +22,7 @@ exports.getCustomerOrders = async (req, res) => {
 
 // Get all orders that include products sold by the currently logged-in seller (shows all product details)
 exports.getSellerOrders = async (req, res) => {
-    let orders = await Order.find().populate("products.productId");
+    let orders = await Order.find().populate("products.productId").sort({createdAt: -1});
 
     orders = orders.filter((order) =>
         order.products.some(
@@ -41,7 +41,9 @@ exports.updateOrderStatus = async (req, res) => {
     const {id: orderId} = req.params;
     const {status} = req.body;
 
-    const order = await Order.findById(orderId).populate("products.productId");
+    const order = await Order.findById(orderId)
+        .populate("products.productId")
+        .sort({createdAt: -1});
     if (!order) {
         return res.status(404).json({message: "Order not found"});
     }

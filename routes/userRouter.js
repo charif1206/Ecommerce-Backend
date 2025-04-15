@@ -4,6 +4,7 @@ const {
     uploadeProfilePicture,
     getUser,
     updatePhoneNumber,
+    deleteUser,
 } = require("../Controllers/usersController");
 const {upload} = require("../middleware/photoUpload");
 const checkRole = require("../middleware/auth/mainRoleCheker");
@@ -22,6 +23,6 @@ userRouter.put("/:id/update-phone", login, updatePhoneNumber);
 
 userRouter.get("/:id", getUser);
 
-// userRouter.delete("/:id", [login, checkRole("admin")], deleteUser);
+userRouter.delete("/:id", [login, checkRole("admin")], deleteUser);
 
 module.exports = userRouter;

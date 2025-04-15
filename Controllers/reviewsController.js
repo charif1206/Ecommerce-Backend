@@ -1,6 +1,6 @@
+const Order = require("../Models/Order");
 const {Product} = require("../Models/Product");
-const Review = require("../Models/Review");
-
+const {Review} = require("../Models/review");
 // Get all reviews for a product (reviews remain unchanged even if the product is soft-deleted)
 exports.getProductReviews = async (req, res) => {
     try {
@@ -32,16 +32,31 @@ exports.getProductReviews = async (req, res) => {
 
 // Add a review (only if the product exists and is not soft-deleted)
 exports.addReview = async (req, res) => {
-    const {productId} = req.params; // Get product ID from URL
-    const {rating, comment} = req.body; // Get rating and comment
-    const user = req.user.userId; // Assume the user ID comes from auth middleware
+    const {productId} = req.params;
+    const {rating, comment} = req.body;
+    const user = req.user.userId;
 
     // Check if the product exists and is not soft-deleted
     const product = await Product.findById(productId);
     if (!product) return res.status(404).send("Product not found");
     if (product.isDeleted) return res.status(400).send("Cannot review a deleted product");
 
-    // Check if the user has already reviewed this product
+    // Check if user has purchased the product (with delivered status)
+    const hasPurchased = await Order.exists({
+        userId: user,
+        status: "delivered",
+        "products.productId": productId,
+    });
+
+    console.log(`User ${user} has purchased product ${productId}:`, hasPurchased);
+
+    if (!hasPurchased) {
+        return res.status(403).json({
+            message: "You must purchase and receive this product before reviewing it.",
+        });
+    }
+
+    // Check for existing review
     const existingReview = await Review.findOne({productId, user});
     if (existingReview) {
         return res.status(400).json({message: "You have already reviewed this product."});
@@ -57,12 +72,12 @@ exports.addReview = async (req, res) => {
 
     await review.save();
 
-    // Recalculate the average rating for the product
+    // Recalculate average rating
     const reviews = await Review.find({productId});
     const totalRating = reviews.reduce((acc, review) => acc + review.rating, 0);
     const averageRating = totalRating / reviews.length;
 
-    // Update the product's average rating and review count
+    // Update product ratings
     product.ratings.average = averageRating;
     product.ratings.count = reviews.length;
     await product.save();

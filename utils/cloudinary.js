@@ -16,7 +16,7 @@ const cloudinaryUpload = async (fileToUpload) => {
         });
         return result;
     } catch (error) {
-        throw new Error(error);
+        throw new Error(error.message);
     }
 };
 

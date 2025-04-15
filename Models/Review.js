@@ -29,4 +29,7 @@ const reviewSchema = new mongoose.Schema({
     },
 });
 
-module.exports = mongoose.model("Review", reviewSchema);
+// Check if the model already exists, and export it if so
+const Review = mongoose.models.Review || mongoose.model("Review", reviewSchema);
+
+module.exports = {Review}

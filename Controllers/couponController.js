@@ -1,4 +1,4 @@
-const Coupon = require("../Models/Coupon");
+const {Coupon} = require("../Models/coupon");
 const {User} = require("../Models/user");
 
 // Helper to generate a unique coupon code
@@ -9,7 +9,7 @@ const generateCouponCode = () => {
 
 exports.getUserCoupons = async (req, res) => {
     // Retrieve coupons associated with the current user using req.user.userId
-    const coupons = await Coupon.find({user: req.user.userId});
+    const coupons = await Coupon.find({user: req.user.userId}).sort({value: -1});
     res.json(coupons);
 };
 
@@ -63,7 +63,7 @@ exports.redeemCoupon = async (req, res) => {
         minimumPurchase,
     });
 
-    res.status(201).json({message: "Coupon redeemed successfully" , code , value});
+    res.status(201).json({message: "Coupon redeemed successfully", code, value});
 };
 
 exports.validateCoupon = async (req, res) => {
@@ -86,7 +86,9 @@ exports.validateCoupon = async (req, res) => {
         });
     }
 
+    // Return coupon value along with success message
     res.json({
         message: "Coupon applied successfully",
+        value: coupon.value,
     });
 };

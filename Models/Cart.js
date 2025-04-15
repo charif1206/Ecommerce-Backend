@@ -37,4 +37,7 @@ const cartSchema = new mongoose.Schema(
     {timestamps: true}
 );
 
-module.exports = mongoose.model("Cart", cartSchema);
+// 👇 This prevents the OverwriteModelError during hot reloads or multiple imports
+const Cart = mongoose.models.Cart || mongoose.model("Cart", cartSchema);
+
+module.exports = {Cart};
