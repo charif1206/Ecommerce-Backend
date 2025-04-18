@@ -1,3 +1,4 @@
+// Import required dependencies and models
 const generateTokenAndSetCookies = require("../middleware/generateTokenAndSetCookies");
 const {Cart} = require("../Models/cart");
 const {Coupon} = require("../Models/coupon");
@@ -5,20 +6,28 @@ const Order = require("../Models/Order");
 const {User} = require("../Models/user");
 const stripe = require("../utils/stripe");
 
+/**
+ * Creates a Stripe checkout session for product purchases
+ * @route POST /payments/create-checkout-session
+ * @access Private (requires login)
+ */
 module.exports.createCheckoutSession = async (req, res) => {
+    // Extract coupon code from request body and user ID from authenticated request
     const {couponCode} = req.body;
     const userId = req.user.userId;
 
+    // Fetch user's cart with product details
     const cart = await Cart.findOne({userId}).populate("items.productId");
     if (!cart || !cart.items?.length) {
         return res.status(400).json({error: "Cart is empty"});
     }
 
-    // Coupon handling
+    // Validate and apply coupon if provided
     let discountValue = 0;
     if (couponCode) {
         const coupon = await Coupon.findOne({code: couponCode, user: userId});
         if (coupon) {
+            // Check if cart total meets minimum purchase requirement
             if (cart.totalPrice < coupon.minimumPurchase) {
                 return res.status(400).json({
                     error: `Minimum purchase of $${coupon.minimumPurchase} required`,
@@ -28,9 +37,10 @@ module.exports.createCheckoutSession = async (req, res) => {
         }
     }
 
-    // Price calculations
+    // Calculate final price and prepare line items for Stripe
     const finalTotal = cart.totalPrice - discountValue;
     const line_items = cart.items.map((item) => {
+        // Distribute discount proportionally across all items
         const itemTotal = item.price * item.quantity;
         const discountShare = (itemTotal / cart.totalPrice) * discountValue;
         const adjustedPrice = (itemTotal - discountShare) / item.quantity;
@@ -42,13 +52,13 @@ module.exports.createCheckoutSession = async (req, res) => {
                     name: item.productId.name,
                     images: item.productId.productImages?.map((img) => img.url) || [],
                 },
-                unit_amount: Math.round(adjustedPrice * 100),
+                unit_amount: Math.round(adjustedPrice * 100), // Convert to cents for Stripe
             },
             quantity: item.quantity,
         };
     });
 
-    // Create Stripe session
+    // Create Stripe checkout session with all necessary parameters
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         line_items,
@@ -63,6 +73,7 @@ module.exports.createCheckoutSession = async (req, res) => {
         },
     });
 
+    // Return session details to the client
     res.status(200).json({
         id: session.id,
         totalAmount: finalTotal,
@@ -71,17 +82,21 @@ module.exports.createCheckoutSession = async (req, res) => {
 };
 
 /**
- * Seller Upgrade Checkout ($300 fixed price)
+ * Creates a Stripe checkout session for seller account upgrade ($300 fixed price)
+ * @route POST /payments/create-seller-upgrade
+ * @access Private (requires login)
  */
 module.exports.createSellerUpgrade = async (req, res) => {
     try {
         const userId = req.user.userId;
         const user = await User.findById(userId);
 
+        // Prevent duplicate upgrades
         if (user.roles === "seller") {
             return res.status(400).json({error: "Already a seller"});
         }
 
+        // Create Stripe checkout session for seller upgrade
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ["card"],
             line_items: [
@@ -107,6 +122,7 @@ module.exports.createSellerUpgrade = async (req, res) => {
             },
         });
 
+        // Return session details to the client
         res.status(200).json({
             id: session.id,
             url: session.url,
@@ -118,18 +134,24 @@ module.exports.createSellerUpgrade = async (req, res) => {
 };
 
 /**
- * Unified Success Handler
+ * Unified success handler for both product purchases and seller upgrades
+ * Processes the completed payment and updates database accordingly
+ * @route POST /payments/checkout-success
+ * @access Private (requires login)
  */
 module.exports.checkoutSuccess = async (req, res) => {
+    // Extract session ID from request
     const {sessionId} = req.body;
 
+    // Retrieve session details from Stripe to verify payment
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
+    // Verify payment was successful
     if (session.payment_status !== "paid") {
         return res.status(400).json({error: "Payment not completed"});
     }
 
-    // Handle Seller Upgrade
+    // ROUTE 1: Handle Seller Upgrade
     if (session.metadata.purchaseType === "seller_upgrade") {
         // Update user role to seller in the database
         await User.findByIdAndUpdate(session.metadata.userId, {
@@ -145,13 +167,14 @@ module.exports.checkoutSuccess = async (req, res) => {
         });
     }
 
-    // Handle Product Purchase
+    // ROUTE 2: Handle Product Purchase
+    // Find user's cart with product details
     const cart = await Cart.findOne({userId: session.metadata.userId}).populate("items.productId");
     if (!cart) {
         return res.status(404).json({error: "Cart not found"});
     }
 
-    // Process coupon
+    // Process coupon if one was used
     let couponDetails = null;
     if (session.metadata.couponCode) {
         const couponDoc = await Coupon.findOne({
@@ -159,11 +182,13 @@ module.exports.checkoutSuccess = async (req, res) => {
             user: session.metadata.userId,
         });
         if (couponDoc) {
+            // Store coupon details for the order record
             couponDetails = {
                 code: couponDoc.code,
                 value: couponDoc.value,
                 minimumPurchase: couponDoc.minimumPurchase,
             };
+            // Delete the coupon after use (one-time use)
             await Coupon.findOneAndDelete({
                 code: session.metadata.couponCode,
                 user: session.metadata.userId,
@@ -171,12 +196,13 @@ module.exports.checkoutSuccess = async (req, res) => {
         }
     }
 
+    // Award loyalty coins (5% of purchase total)
     const coinsEarned = Math.round((session.amount_total / 100) * 5);
     await User.findByIdAndUpdate(session.metadata.userId, {
-        $inc: {coins: coinsEarned},
+        $inc: {coins: coinsEarned}, // Increment user's coins
     });
 
-    // Create order
+    // Create a new order record in the database
     const newOrder = new Order({
         userId: session.metadata.userId,
         products: cart.items.map((item) => ({
@@ -184,18 +210,19 @@ module.exports.checkoutSuccess = async (req, res) => {
             quantity: item.quantity,
             price: item.price,
         })),
-        totalPrice: session.amount_total / 100,
+        totalPrice: session.amount_total / 100, // Convert from cents
         stripeSessionId: session.id,
         coupon: couponDetails,
     });
 
     await newOrder.save();
 
-    // Clear cart
+    // Clear the user's cart now that purchase is complete
     await Cart.findByIdAndUpdate(cart._id, {
         $set: {items: [], totalPrice: 0},
     });
 
+    // Return success response with order details
     res.status(200).json({
         orderId: newOrder._id,
         message: "Order completed successfully",
