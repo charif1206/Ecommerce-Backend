@@ -1,11 +1,11 @@
-const {User} = require("../Models/user");
-const {cloudinaryUpload, cloudinaryDelete} = require("../utils/cloudinary");
+const { User } = require("../Models/user");
+const { cloudinaryUpload, cloudinaryDelete } = require("../utils/cloudinary");
 const fs = require("fs");
 const dotenv = require("dotenv");
-const {Cart} = require("../Models/cart");
-const {Coupon} = require("../Models/coupon");
-const {Product} = require("../Models/Product");
-const {Review} = require("../Models/review");
+const { Cart } = require("../Models/cart");
+const { Coupon } = require("../Models/coupon");
+const { Product } = require("../Models/Product");
+const { Review } = require("../Models/review");
 dotenv.config();
 
 /**
@@ -45,11 +45,10 @@ module.exports.uploadeProfilePicture = async (req, res) => {
     const file = req.file;
 
     if (!file) {
-        return res.status(400).json({message: "No file uploaded"});
+        return res.status(400).json({ message: "No file uploaded" });
     }
-
     let user = await User.findById(req.params.id);
-    if (!user) return res.status(400).json({message: "User not found"});
+    if (!user) return res.status(400).json({ message: "User not found" });
 
     const imagePath = file.path;
 
@@ -66,7 +65,7 @@ module.exports.uploadeProfilePicture = async (req, res) => {
 
     await user.save();
 
-    res.status(200).json({message: "Profile picture uploaded", result: result});
+    res.status(200).json({ message: "Profile picture uploaded", result: result });
 
     fs.unlinkSync(imagePath);
 };
@@ -94,15 +93,15 @@ module.exports.deleteUser = async (req, res) => {
 
         // 3. Process reviews:
         // 3.1 Find all reviews authored by the user.
-        const userReviews = await Review.find({user: userId});
+        const userReviews = await Review.find({ user: userId });
         const productIds = [...new Set(userReviews.map((review) => review.productId.toString()))];
 
         // 3.2 Remove all reviews by the user.
-        await Review.deleteMany({user: userId});
+        await Review.deleteMany({ user: userId });
 
         // 3.3 Recalculate ratings for each affected product.
         for (const productId of productIds) {
-            const remainingReviews = await Review.find({productId});
+            const remainingReviews = await Review.find({ productId });
             const count = remainingReviews.length;
             let average = 0;
             if (count > 0) {
@@ -116,14 +115,14 @@ module.exports.deleteUser = async (req, res) => {
         }
 
         // 4. Mark all products owned by the user as deleted.
-        await Product.updateMany({seller: userId}, {isDeleted: true});
+        await Product.updateMany({ seller: userId }, { isDeleted: true });
 
         // 5. Remove the user from products' likes and favorites arrays.
-        await Product.updateMany({likes: userId}, {$pull: {likes: userId}});
-        await Product.updateMany({favorites: userId}, {$pull: {favorites: userId}});
+        await Product.updateMany({ likes: userId }, { $pull: { likes: userId } });
+        await Product.updateMany({ favorites: userId }, { $pull: { favorites: userId } });
 
-        await Cart.deleteOne({user: userId});
-        await Coupon.deleteMany({user: userId});
+        await Cart.deleteOne({ user: userId });
+        await Coupon.deleteMany({ user: userId });
 
         // 7. Finally, delete the user document.
         await user.deleteOne();
@@ -140,18 +139,18 @@ module.exports.deleteUser = async (req, res) => {
 };
 
 module.exports.updatePhoneNumber = async (req, res) => {
-    const {id} = req.params;
-    const {phoneNumber} = req.body;
+    const { id } = req.params;
+    const { phoneNumber } = req.body;
 
     // Find the user by ID
     const user = await User.findById(id);
     if (!user) {
-        return res.status(404).json({message: "User not found"});
+        return res.status(404).json({ message: "User not found" });
     }
 
     // Update the phone number
     user.phoneNumber = phoneNumber;
     await user.save();
 
-    res.status(200).json({message: "Phone number updated successfully"});
+    res.status(200).json({ message: "Phone number updated successfully" });
 };

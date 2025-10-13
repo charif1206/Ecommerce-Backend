@@ -1,6 +1,6 @@
 const express = require("express");
 const productRouter = express.Router();
-const {upload} = require("../middleware/photoUpload");
+const { upload } = require("../middleware/photoUpload");
 const {
     getAllProducts,
     getProduct,
@@ -36,5 +36,5 @@ productRouter.put("/favorite/:id", login, toggleFavorite);
 
 productRouter.patch("/:productId", updateProduct);
 
-productRouter.delete("/:id", [login, checkRole("admin")], deleteProduct);
+productRouter.delete("/:id", [login, checkRole("seller")], deleteProduct);
 module.exports = productRouter;

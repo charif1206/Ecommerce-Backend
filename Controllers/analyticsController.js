@@ -1,21 +1,22 @@
 const mongoose = require("mongoose");
 const Order = require("../Models/Order");
-const {Product} = require("../Models/Product");
-const {User} = require("../Models/user");
+const { Product } = require("../Models/Product");
+const { User } = require("../Models/user");
 
 /**
  * Retrieves analytics data for a given user.
  * Excludes products where isDeleted = true.
  */
 const getAnalyticsData = async (userId, roles) => {
+    // Convert userId to ObjectId for MongoDB queries
     const userIdObject = new mongoose.Types.ObjectId(userId);
-    
+
     let totalUsers = 0;
 
     // Count total products that belong to the current seller (excluding deleted).
     const totalProducts = await Product.find({
         seller: userId,
-        isDeleted: {$ne: true},
+        isDeleted: { $ne: true },
     }).countDocuments();
 
     // If admin, count all users
@@ -26,9 +27,9 @@ const getAnalyticsData = async (userId, roles) => {
     // Aggregation to get totalSales and totalRevenue
     const salesDataFinal = await Order.aggregate([
         // Unwind products to get each product in the order separately
-        {$unwind: "$products"},
+        { $unwind: "$products" },
 
-        // Lookup the product details using the productId
+        // Match orders that contain products from the current seller
         {
             $lookup: {
                 from: "products",
@@ -39,13 +40,13 @@ const getAnalyticsData = async (userId, roles) => {
         },
 
         // Unwind productDetails to access individual product data
-        {$unwind: "$productDetails"},
+        { $unwind: "$productDetails" },
 
         // Match only products that belong to the current seller and are not soft-deleted
         {
             $match: {
                 "productDetails.seller": userIdObject,
-                "productDetails.isDeleted": {$ne: true},
+                "productDetails.isDeleted": { $ne: true },
             },
         },
 
@@ -53,14 +54,14 @@ const getAnalyticsData = async (userId, roles) => {
         {
             $group: {
                 _id: null,
-                totalSales: {$sum: "$products.quantity"}, // Count total quantity sold
-                totalRevenue: {$sum: "$totalPrice"}, // Sum total price
+                totalSales: { $sum: "$products.quantity" }, // Count total quantity sold
+                totalRevenue: { $sum: "$totalPrice" }, // Sum total price
             },
         },
     ]);
 
     // Fallback to zeros if no matching sales data is found
-    const {totalSales, totalRevenue} = salesDataFinal[0] || {
+    const { totalSales, totalRevenue } = salesDataFinal[0] || {
         totalSales: 0,
         totalRevenue: 0,
     };
@@ -103,17 +104,17 @@ const getDailySalesData = async (startDate, endDate, userId) => {
                         $lte: endDate,
                     },
                     "product.seller": sellerObjectId,
-                    "product.isDeleted": {$ne: true}, // Exclude soft-deleted products
+                    "product.isDeleted": { $ne: true }, // Exclude soft-deleted products
                 },
             },
             {
                 $group: {
-                    _id: {$dateToString: {format: "%Y-%m-%d", date: "$createdAt"}},
-                    sales: {$sum: 1}, // Count 1 sale per order
-                    revenue: {$sum: "$totalPrice"},
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    sales: { $sum: 1 }, // Count 1 sale per order
+                    revenue: { $sum: "$totalPrice" },
                 },
             },
-            {$sort: {_id: 1}},
+            { $sort: { _id: 1 } },
         ]);
 
         const dateArray = getDatesInRange(startDate, endDate);

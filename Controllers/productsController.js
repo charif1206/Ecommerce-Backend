@@ -1,8 +1,8 @@
 const path = require("path");
 const fs = require("fs").promises;
-const {cloudinaryUploads, cloudinaryDeletes} = require("../utils/cloudinary");
-const {validateProduct} = require("../Validation/productValidation");
-const {Product} = require("../Models/Product");
+const { cloudinaryUploads, cloudinaryDeletes } = require("../utils/cloudinary");
+const { validateProduct } = require("../Validation/productValidation");
+const { Product } = require("../Models/Product");
 
 const removeFiles = async (filePaths) => {
     try {
@@ -27,22 +27,22 @@ module.exports.getAllProducts = async (req, res) => {
     } = req.query;
 
     // Build filters
-    const filters = {isDeleted: {$ne: true}}; // Exclude soft-deleted
+    const filters = { isDeleted: { $ne: true } }; // Exclude soft-deleted
 
     // Process categories filter
     const categoryArray = categories ? categories.split(",") : [];
     if (categoryArray.length > 0) {
-        filters.category = {$in: categoryArray};
+        filters.category = { $in: categoryArray };
     }
 
     // Process search query filter
     if (searchQuery) {
-        filters.name = {$regex: searchQuery, $options: "i"};
+        filters.name = { $regex: searchQuery, $options: "i" };
     }
 
     // Define sorting options (by price)
     const order = sortOrder === "desc" ? -1 : 1;
-    const sortOptions = {price: order};
+    const sortOptions = { price: order };
 
     try {
         let products, totalProducts, currentPage, pageSize, totalPages;
@@ -50,6 +50,7 @@ module.exports.getAllProducts = async (req, res) => {
         // If limit is empty (or explicitly set to "all"), fetch all data
         if (!limit || limit.toLowerCase() === "all") {
             products = await Product.find(filters)
+                // .populate("category") // only username and profilePicture
                 .populate("seller", "username profilePicture")
                 .select("-__v")
                 .sort(sortOptions);
@@ -84,7 +85,7 @@ module.exports.getAllProducts = async (req, res) => {
             pageSize,
         });
     } catch (error) {
-        res.status(500).json({message: "Server Error", error});
+        res.status(500).json({ message: "Server Error", error });
     }
 };
 
@@ -96,13 +97,13 @@ module.exports.getAllProducts = async (req, res) => {
 module.exports.getProduct = async (req, res) => {
     const product = await Product.findOne({
         _id: req.params.id,
-        isDeleted: {$ne: true},
+        isDeleted: { $ne: true },
     })
         .populate("seller")
         .select("-__v");
 
     if (!product) {
-        return res.status(404).json({message: "Product not found"});
+        return res.status(404).json({ message: "Product not found" });
     }
     res.send(product);
 };
@@ -113,13 +114,13 @@ module.exports.getProduct = async (req, res) => {
  * @access  Public
  */
 exports.getSellerProducts = async (req, res) => {
-    const {id: sellerId} = req.params;
+    const { id: sellerId } = req.params;
     const products = await Product.find({
         seller: sellerId,
-        isDeleted: {$ne: true},
+        isDeleted: { $ne: true },
     });
 
-    return res.status(200).json({products});
+    return res.status(200).json({ products });
 };
 
 /**
@@ -127,7 +128,7 @@ exports.getSellerProducts = async (req, res) => {
  * @desc    Creates a new product with optional variants and image uploads
  * @access  Private (Admin-only access recommended)
  */
-module.exports.createProduct = async (req, res) => {    
+module.exports.createProduct = async (req, res) => {
     // Set the seller from the authenticated user (make sure req.user exists)
     req.body.seller = req.user.userId;
 
@@ -137,17 +138,17 @@ module.exports.createProduct = async (req, res) => {
 
     const files = req.files;
     if (!files || files.length === 0) {
-        return res.status(400).json({message: "No files uploaded"});
+        return res.status(400).json({ message: "No files uploaded" });
     }
 
     // Parse JSON fields if they exist
     req.body.variants = req.body.variants ? JSON.parse(req.body.variants) : {};
-    req.body.ratings = req.body.ratings ? JSON.parse(req.body.ratings) : {average: 0, count: 0};
+    req.body.ratings = req.body.ratings ? JSON.parse(req.body.ratings) : { average: 0, count: 0 };
 
     // Validate product data (using your existing validateProduct function)
-    const {error} = validateProduct(req.body);
+    const { error } = validateProduct(req.body);
     if (error) {
-        return res.status(400).send({error: error.details[0].message});
+        return res.status(400).send({ error: error.details[0].message });
     }
 
     // Upload images to Cloudinary (assuming cloudinaryUploads is defined)
@@ -180,27 +181,28 @@ module.exports.createProduct = async (req, res) => {
  * @access  Private
  */
 module.exports.toggleLike = async (req, res) => {
-    const {id: postId} = req.params;
-    const {userId} = req.user;
+    const { id: postId } = req.params;
+    const { userId } = req.user;
 
     // Exclude soft-deleted products
     let product = await Product.findOne({
         _id: postId,
-        isDeleted: {$ne: true},
+        isDeleted: { $ne: true },
     });
     if (!product) {
-        return res.status(404).json({message: "Product not found or deleted"});
+        return res.status(404).json({ message: "Product not found or deleted" });
     }
-
+    // Check if the user is already in the likes array
     const isLiked = product.likes.includes(userId);
     let post;
+    // If the user is already in the likes array, remove them; otherwise, add them
     if (isLiked) {
-        post = await Product.findByIdAndUpdate(postId, {$pull: {likes: userId}}, {new: true});
+        post = await Product.findByIdAndUpdate(postId, { $pull: { likes: userId } }, { new: true });
     } else {
-        post = await Product.findByIdAndUpdate(postId, {$push: {likes: userId}}, {new: true});
+        post = await Product.findByIdAndUpdate(postId, { $push: { likes: userId } }, { new: true });
     }
 
-    res.json({likes: post.likes.length});
+    res.json({ likes: post.likes.length });
 };
 
 /**
@@ -209,27 +211,27 @@ module.exports.toggleLike = async (req, res) => {
  * @access  Private
  */
 module.exports.toggleFavorite = async (req, res) => {
-    const {id: postId} = req.params;
-    const {userId} = req.user;
+    const { id: postId } = req.params;
+    const { userId } = req.user;
 
     // Exclude soft-deleted products
     let product = await Product.findOne({
         _id: postId,
-        isDeleted: {$ne: true},
+        isDeleted: { $ne: true },
     });
     if (!product) {
-        return res.status(404).json({message: "Product not found or deleted"});
+        return res.status(404).json({ message: "Product not found or deleted" });
     }
 
     let post;
     const isFavorited = product.favorites.includes(userId);
     if (isFavorited) {
-        post = await Product.findByIdAndUpdate(postId, {$pull: {favorites: userId}}, {new: true});
+        post = await Product.findByIdAndUpdate(postId, { $pull: { favorites: userId } }, { new: true });
     } else {
-        post = await Product.findByIdAndUpdate(postId, {$push: {favorites: userId}}, {new: true});
+        post = await Product.findByIdAndUpdate(postId, { $push: { favorites: userId } }, { new: true });
     }
 
-    res.json({favorites: post.favorites.length});
+    res.json({ favorites: post.favorites.length });
 };
 
 /**
@@ -242,10 +244,10 @@ module.exports.getLikedProducts = async (req, res) => {
 
     const likedProducts = await Product.find({
         likes: userId,
-        isDeleted: {$ne: true},
+        isDeleted: { $ne: true },
     }).populate("seller");
 
-    return res.status(200).json({products: likedProducts});
+    return res.status(200).json({ products: likedProducts });
 };
 
 /**
@@ -258,10 +260,10 @@ module.exports.getFavoriteProducts = async (req, res) => {
 
     const favoriteProducts = await Product.find({
         favorites: userId,
-        isDeleted: {$ne: true},
+        isDeleted: { $ne: true },
     }).populate("seller");
 
-    return res.status(200).json({products: favoriteProducts});
+    return res.status(200).json({ products: favoriteProducts });
 };
 
 /**
@@ -270,21 +272,21 @@ module.exports.getFavoriteProducts = async (req, res) => {
  * @access  Private
  */
 exports.updateProduct = async (req, res) => {
-    const {productId} = req.params;
+    const { productId } = req.params;
     const updateData = req.body;
 
     // Exclude soft-deleted
     const updatedProduct = await Product.findOneAndUpdate(
-        {_id: productId, isDeleted: {$ne: true}},
+        { _id: productId, isDeleted: { $ne: true } },
         updateData,
-        {new: true, runValidators: true}
+        { new: true, runValidators: true }
     );
 
     if (!updatedProduct) {
-        return res.status(404).json({message: "Product not found or has been deleted"});
+        return res.status(404).json({ message: "Product not found or has been deleted" });
     }
 
-    return res.status(200).json({product: updatedProduct});
+    return res.status(200).json({ product: updatedProduct });
 };
 
 /**
@@ -295,12 +297,12 @@ exports.updateProduct = async (req, res) => {
 module.exports.deleteProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
     if (!product) {
-        return res.status(404).json({message: "Product not found"});
+        return res.status(404).json({ message: "Product not found" });
     }
 
     // Mark product as deleted
     product.isDeleted = true;
     await product.save();
 
-    res.status(200).json({message: "Product soft-deleted"});
+    res.status(200).json({ message: "Product soft-deleted" });
 };

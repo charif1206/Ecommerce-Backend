@@ -1,9 +1,9 @@
 // Import required dependencies and models
 const generateTokenAndSetCookies = require("../middleware/generateTokenAndSetCookies");
-const {Cart} = require("../Models/cart");
-const {Coupon} = require("../Models/coupon");
+const { Cart } = require("../Models/cart");
+const { Coupon } = require("../Models/coupon");
 const Order = require("../Models/Order");
-const {User} = require("../Models/user");
+const { User } = require("../Models/user");
 const stripe = require("../utils/stripe");
 
 /**
@@ -13,19 +13,19 @@ const stripe = require("../utils/stripe");
  */
 module.exports.createCheckoutSession = async (req, res) => {
     // Extract coupon code from request body and user ID from authenticated request
-    const {couponCode} = req.body;
+    const { couponCode } = req.body;
     const userId = req.user.userId;
 
     // Fetch user's cart with product details
-    const cart = await Cart.findOne({userId}).populate("items.productId");
+    const cart = await Cart.findOne({ userId }).populate("items.productId");
     if (!cart || !cart.items?.length) {
-        return res.status(400).json({error: "Cart is empty"});
+        return res.status(400).json({ error: "Cart is empty" });
     }
 
     // Validate and apply coupon if provided
     let discountValue = 0;
     if (couponCode) {
-        const coupon = await Coupon.findOne({code: couponCode, user: userId});
+        const coupon = await Coupon.findOne({ code: couponCode, user: userId });
         if (coupon) {
             // Check if cart total meets minimum purchase requirement
             if (cart.totalPrice < coupon.minimumPurchase) {
@@ -39,6 +39,7 @@ module.exports.createCheckoutSession = async (req, res) => {
 
     // Calculate final price and prepare line items for Stripe
     const finalTotal = cart.totalPrice - discountValue;
+    //
     const line_items = cart.items.map((item) => {
         // Distribute discount proportionally across all items
         const itemTotal = item.price * item.quantity;
@@ -93,7 +94,7 @@ module.exports.createSellerUpgrade = async (req, res) => {
 
         // Prevent duplicate upgrades
         if (user.roles === "seller") {
-            return res.status(400).json({error: "Already a seller"});
+            return res.status(400).json({ error: "Already a seller" });
         }
 
         // Create Stripe checkout session for seller upgrade
@@ -129,7 +130,7 @@ module.exports.createSellerUpgrade = async (req, res) => {
         });
     } catch (error) {
         console.error("Upgrade error:", error);
-        res.status(500).json({error: "Upgrade failed"});
+        res.status(500).json({ error: "Upgrade failed" });
     }
 };
 
@@ -141,14 +142,14 @@ module.exports.createSellerUpgrade = async (req, res) => {
  */
 module.exports.checkoutSuccess = async (req, res) => {
     // Extract session ID from request
-    const {sessionId} = req.body;
+    const { sessionId } = req.body;
 
     // Retrieve session details from Stripe to verify payment
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     // Verify payment was successful
     if (session.payment_status !== "paid") {
-        return res.status(400).json({error: "Payment not completed"});
+        return res.status(400).json({ error: "Payment not completed" });
     }
 
     // ROUTE 1: Handle Seller Upgrade
@@ -169,9 +170,9 @@ module.exports.checkoutSuccess = async (req, res) => {
 
     // ROUTE 2: Handle Product Purchase
     // Find user's cart with product details
-    const cart = await Cart.findOne({userId: session.metadata.userId}).populate("items.productId");
+    const cart = await Cart.findOne({ userId: session.metadata.userId }).populate("items.productId");
     if (!cart) {
-        return res.status(404).json({error: "Cart not found"});
+        return res.status(404).json({ error: "Cart not found" });
     }
 
     // Process coupon if one was used
@@ -199,7 +200,7 @@ module.exports.checkoutSuccess = async (req, res) => {
     // Award loyalty coins (5% of purchase total)
     const coinsEarned = Math.round((session.amount_total / 100) * 5);
     await User.findByIdAndUpdate(session.metadata.userId, {
-        $inc: {coins: coinsEarned}, // Increment user's coins
+        $inc: { coins: coinsEarned }, // Increment user's coins
     });
 
     // Create a new order record in the database
@@ -219,7 +220,7 @@ module.exports.checkoutSuccess = async (req, res) => {
 
     // Clear the user's cart now that purchase is complete
     await Cart.findByIdAndUpdate(cart._id, {
-        $set: {items: [], totalPrice: 0},
+        $set: { items: [], totalPrice: 0 },
     });
 
     // Return success response with order details
