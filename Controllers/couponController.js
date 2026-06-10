@@ -1,5 +1,5 @@
-const {Coupon} = require("../Models/coupon");
-const {User} = require("../Models/user");
+const {Coupon} = require("../Models/Coupon");
+const {User} = require("../Models/User");
 
 // Helper to generate a unique coupon code
 const generateCouponCode = () => {

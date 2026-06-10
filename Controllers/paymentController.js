@@ -1,9 +1,9 @@
 // Import required dependencies and models
 const generateTokenAndSetCookies = require("../middleware/generateTokenAndSetCookies");
-const { Cart } = require("../Models/cart");
-const { Coupon } = require("../Models/coupon");
+const { Cart } = require("../Models/Cart");
+const { Coupon } = require("../Models/Coupon");
 const Order = require("../Models/Order");
-const { User } = require("../Models/user");
+const { User } = require("../Models/User");
 const stripe = require("../utils/stripe");
 
 /**

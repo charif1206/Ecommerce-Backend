@@ -1,4 +1,4 @@
-const {userValidation, User} = require("../Models/user");
+const {userValidation, User} = require("../Models/User");
 const bcrypt = require("bcrypt");
 const VerificationToken = require("../Models/VerificationToken");
 const crypto = require("crypto");

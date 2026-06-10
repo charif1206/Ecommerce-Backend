@@ -1,6 +1,6 @@
 const Order = require("../Models/Order");
 const {Product} = require("../Models/Product");
-const {Review} = require("../Models/review");
+const {Review} = require("../Models/Review");
 // Get all reviews for a product (reviews remain unchanged even if the product is soft-deleted)
 exports.getProductReviews = async (req, res) => {
     try {

@@ -1,4 +1,4 @@
-const {User, passwordResetEmailValidation, passwordResetValidation} = require("../Models/user");
+const {User, passwordResetEmailValidation, passwordResetValidation} = require("../Models/User");
 const VerificationToken = require("../Models/VerificationToken");
 const crypto = require("crypto");
 const sendMail = require("../utils/nodeMailer");

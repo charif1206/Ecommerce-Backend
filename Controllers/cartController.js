@@ -1,5 +1,5 @@
 const {Product} = require("../Models/Product");
-const {Cart} = require("../Models/cart");
+const {Cart} = require("../Models/Cart");
 
 // Get the current user's cart. If it doesn't exist, create a new empty cart.
 exports.getUserCart = async (req, res) => {

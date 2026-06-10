@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Order = require("../Models/Order");
 const { Product } = require("../Models/Product");
-const { User } = require("../Models/user");
+const { User } = require("../Models/User");
 
 /**
  * Retrieves analytics data for a given user.

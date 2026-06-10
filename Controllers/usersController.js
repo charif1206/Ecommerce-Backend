@@ -1,11 +1,11 @@
-const { User } = require("../Models/user");
+const { User } = require("../Models/User");
 const { cloudinaryUpload, cloudinaryDelete } = require("../utils/cloudinary");
 const fs = require("fs");
 const dotenv = require("dotenv");
-const { Cart } = require("../Models/cart");
-const { Coupon } = require("../Models/coupon");
+const { Cart } = require("../Models/Cart");
+const { Coupon } = require("../Models/Coupon");
 const { Product } = require("../Models/Product");
-const { Review } = require("../Models/review");
+const { Review } = require("../Models/Review");
 dotenv.config();
 
 /**
